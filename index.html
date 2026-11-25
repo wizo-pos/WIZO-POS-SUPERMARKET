@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#142b3b">
+  <title>WIZO POS — Supermarket Management</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div id="toast" class="toast" role="status"></div>
+
+  <main id="authScreen" class="auth-shell">
+    <section class="auth-brand">
+      <div class="brand-mark">W</div>
+      <div class="brand-name">WIZO <span>POS</span></div>
+      <p class="brand-kicker">SUPERMARKET MANAGEMENT SYSTEM</p>
+      <h1>Run your store.<br>Know your numbers.</h1>
+      <p class="brand-copy">Sales, inventory and business management in one simple workspace.</p>
+      <div class="brand-pills"><span>Sales</span><span>Inventory</span><span>Reports</span></div>
+    </section>
+    <section class="auth-panel">
+      <div class="auth-top">
+        <span class="mobile-brand">WIZO POS</span>
+        <select id="authLanguage" aria-label="Language">
+          <option value="en">English</option><option value="om">Afaan Oromoo</option><option value="ar">العربية</option>
+        </select>
+      </div>
+      <div class="auth-card">
+        <div class="eyebrow">YOUR BUSINESS WORKSPACE</div>
+        <h2 id="authTitle">Welcome back</h2>
+        <p id="authSubtitle" class="muted">Sign in to continue to WIZO POS.</p>
+        <form id="authForm">
+          <label>Email address<input id="authEmail" type="email" autocomplete="email" placeholder="you@company.com" required></label>
+          <label>Password<input id="authPassword" type="password" autocomplete="current-password" minlength="6" placeholder="At least 6 characters" required></label>
+          <button id="authSubmit" class="btn btn-primary full" type="submit">Sign in</button>
+        </form>
+        <div class="auth-switch"><span id="authSwitchText">New to WIZO POS?</span> <button id="authSwitch" class="text-button" type="button">Create account</button></div>
+        <p class="security-note">Your account is protected by Supabase Authentication. Never share your password.</p>
+      </div>
+      <div class="auth-footer">© <span id="year"></span> WIZO POS</div>
+    </section>
+  </main>
+
+  <main id="appScreen" class="app-shell hidden">
+    <aside id="sidebar" class="sidebar">
+      <div class="side-brand"><div class="brand-mark small">W</div><div><strong>WIZO POS</strong><small>SUPERMARKET</small></div></div>
+      <div class="business-switch"><span class="business-dot"></span><div><small>ACTIVE BUSINESS</small><strong id="sideBusinessName">My supermarket</strong></div></div>
+      <nav class="nav-list">
+        <button class="nav-link active" data-page="dashboard"><span>▦</span><b data-i18n="dashboard">Dashboard</b></button>
+        <button class="nav-link" data-page="products"><span>▣</span><b data-i18n="products">Products & Stock</b></button>
+        <button class="nav-link" data-page="sales"><span>↗</span><b data-i18n="sales">Sales</b></button>
+        <button class="nav-link" data-page="purchases"><span>⇩</span><b data-i18n="purchases">Purchases</b></button>
+        <button class="nav-link" data-page="customers"><span>♙</span><b data-i18n="customers">Customers</b></button>
+        <button class="nav-link" data-page="suppliers"><span>♧</span><b data-i18n="suppliers">Suppliers</b></button>
+        <button class="nav-link" data-page="expenses"><span>↘</span><b data-i18n="expenses">Expenses</b></button>
+        <button class="nav-link" data-page="reports"><span>▤</span><b data-i18n="reports">Reports</b></button>
+        <button class="nav-link" data-page="settings"><span>⚙</span><b data-i18n="settings">Settings</b></button>
+      </nav>
+      <div class="side-bottom"><div class="connection"><span class="online-dot"></span><span id="connectionText">Cloud ready</span></div><button id="signOutBtn" class="nav-link signout"><span>⇥</span><b data-i18n="signout">Sign out</b></button></div>
+    </aside>
+
+    <section class="main-area">
+      <header class="topbar">
+        <button id="menuToggle" class="icon-btn mobile-only" aria-label="Open menu">☰</button>
+        <div><div class="eyebrow" data-i18n="workspace">BUSINESS WORKSPACE</div><h1 id="pageTitle">Dashboard</h1></div>
+        <div class="top-actions">
+          <select id="languageSelect" aria-label="Language"><option value="en">English</option><option value="om">Afaan Oromoo</option><option value="ar">العربية</option></select>
+          <select id="currencySelect" aria-label="Currency"><option value="SAR">SAR</option><option value="ETB">ETB</option><option value="USD">USD</option><option value="AED">AED</option><option value="EUR">EUR</option></select>
+          <div class="avatar" id="userAvatar">W</div>
+        </div>
+      </header>
+
+      <div class="content">
+        <section id="businessSetup" class="setup-card hidden">
+          <div><div class="eyebrow">FIRST-TIME SETUP</div><h2>Create your supermarket workspace</h2><p class="muted">Add your business details to start using WIZO POS.</p></div>
+          <form id="businessForm" class="business-form">
+            <label>Business name<input id="businessName" required placeholder="e.g. Wizo Family Market"></label>
+            <label>Owner name<input id="ownerName" required placeholder="Your full name"></label>
+            <label>Default currency<select id="businessCurrency"><option value="SAR">SAR — Saudi Riyal</option><option value="ETB">ETB — Ethiopian Birr</option><option value="USD">USD — US Dollar</option><option value="AED">AED — UAE Dirham</option><option value="EUR">EUR — Euro</option></select></label>
+            <button class="btn btn-primary" type="submit">Create business</button>
+          </form>
+        </section>
+
+        <section id="dashboardPage" class="page">
+          <div class="welcome-row"><div><h2 id="welcomeTitle">Welcome to WIZO POS</h2><p class="muted">Here is your business overview.</p></div><button id="refreshBtn" class="btn btn-light">↻ Refresh</button></div>
+          <div class="metric-grid">
+            <article class="metric-card"><div class="metric-label">TODAY'S SALES</div><div class="metric-value" id="metricSales">—</div><div class="metric-foot">Sales summary will appear here</div></article>
+            <article class="metric-card"><div class="metric-label">PURCHASE COST</div><div class="metric-value" id="metricPurchases">—</div><div class="metric-foot">Recorded purchases</div></article>
+            <article class="metric-card"><div class="metric-label">NET PROFIT</div><div class="metric-value" id="metricProfit">—</div><div class="metric-foot">Based on recorded transactions</div></article>
+            <article class="metric-card"><div class="metric-label">STOCK PRODUCTS</div><div class="metric-value" id="metricProducts">0</div><div class="metric-foot">Products in your catalogue</div></article>
+          </div>
+          <div class="dashboard-grid">
+            <article class="panel"><div class="panel-head"><div><h3>Getting started</h3><p class="muted">Your WIZO POS workspace</p></div><span class="status-pill">Milestone 1</span></div><div class="check-list"><div>✓ <span>Account authentication</span></div><div>✓ <span>Business workspace setup</span></div><div>○ <span>Add products and opening stock</span></div><div>○ <span>Configure cashiers and permissions</span></div><div>○ <span>Connect receipt printer and barcode scanner</span></div></div></article>
+            <article class="panel"><div class="panel-head"><div><h3>Recent products</h3><p class="muted">Latest items in your catalogue</p></div><button class="text-button" data-goto="products">View all</button></div><div id="recentProducts" class="empty-state">No products added yet.</div></article>
+          </div>
+        </section>
+
+        <section id="productsPage" class="page hidden">
+          <div class="section-toolbar"><div><h2>Products & Stock</h2><p class="muted">Manage your supermarket product catalogue.</p></div><button id="addProductBtn" class="btn btn-primary">＋ Add product</button></div>
+          <div class="panel table-panel"><div class="table-tools"><input id="productSearch" placeholder="Search products or barcode…"><span id="productCount" class="muted">0 products</span></div><div class="table-wrap"><table><thead><tr><th>Product</th><th>Barcode</th><th>Unit</th><th>Cost price</th><th>Selling price</th><th>Stock</th></tr></thead><tbody id="productsTable"><tr><td colspan="6" class="empty-state">No products yet. Add your first product.</td></tr></tbody></table></div></div>
+          <div id="productFormWrap" class="panel form-panel hidden"><div class="panel-head"><div><h3>Add a product</h3><p class="muted">Product details and pricing</p></div><button id="closeProductForm" class="icon-btn" type="button">✕</button></div><form id="productForm" class="product-form"><label>Product name<input id="productName" required></label><label>Barcode<input id="productBarcode"></label><label>Unit<select id="productUnit"><option>piece</option><option>kg</option><option>gram</option><option>liter</option><option>box</option><option>carton</option></select></label><label>Cost price<input id="costPrice" type="number" min="0" step="0.01" required></label><label>Selling price<input id="sellingPrice" type="number" min="0" step="0.01" required></label><label>Opening stock<input id="openingStock" type="number" min="0" step="0.001" value="0" required></label><button class="btn btn-primary" type="submit">Save product</button></form></div>
+        </section>
+
+        <section id="placeholderPage" class="page hidden"><div class="panel coming-panel"><div class="coming-icon">◈</div><h2 id="placeholderTitle">Coming next</h2><p class="muted">This module is planned for the next WIZO POS development milestone.</p></div></section>
+
+        <section id="settingsPage" class="page hidden"><div class="panel settings-panel"><h2>Business settings</h2><p class="muted">Choose the language and main currency for your workspace.</p><div class="settings-row"><label for="settingsLanguage">Application language</label><select id="settingsLanguage"><option value="en">English</option><option value="om">Afaan Oromoo</option><option value="ar">العربية</option></select></div><div class="settings-row"><label for="settingsCurrency">Main currency</label><select id="settingsCurrency"><option value="SAR">SAR — Saudi Riyal</option><option value="ETB">ETB — Ethiopian Birr</option><option value="USD">USD — US Dollar</option><option value="AED">AED — UAE Dirham</option><option value="EUR">EUR — Euro</option></select></div><p class="security-note">Currency selection changes display preferences. Multi-currency transaction and exchange-rate accounting will be added in a later milestone.</p></div></section>
+      </div>
+    </section>
+  </main>
+
+  <div id="modalBackdrop" class="modal-backdrop hidden"><div class="modal"><h3 id="modalTitle">Notice</h3><p id="modalMessage"></p><button id="modalClose" class="btn btn-primary">Close</button></div></div>
+</body>
+</html>
