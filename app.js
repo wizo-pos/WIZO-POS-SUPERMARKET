@@ -7,7 +7,6 @@
     cfg.SUPABASE_URL &&
     cfg.SUPABASE_PUBLISHABLE_KEY
   );
-
   const db = clientReady
     ? window.supabase.createClient(
         cfg.SUPABASE_URL,
@@ -16,7 +15,6 @@
     : null;
 
   const $ = id => document.getElementById(id);
-
   let sessionUser = null;
   let businessId = null;
   let businessName = "";
@@ -25,42 +23,26 @@
 
   const words = {
     en: {
-      dashboard: "Dashboard",
-      products: "Products & Stock",
-      sales: "Sales",
-      purchases: "Purchases",
-      customers: "Customers",
-      suppliers: "Suppliers",
-      expenses: "Expenses",
-      reports: "Reports",
-      settings: "Settings",
-      signout: "Sign out",
+      dashboard: "Dashboard", products: "Products & Stock",
+      sales: "Sales", purchases: "Purchases", customers: "Customers",
+      suppliers: "Suppliers", expenses: "Expenses", reports: "Reports",
+      settings: "Settings", signout: "Sign out",
       workspace: "BUSINESS WORKSPACE"
     },
     om: {
-      dashboard: "Gabatee",
-      products: "Oomishaalee fi Kuusaa",
-      sales: "Gurgurtaa",
-      purchases: "Bittaa",
-      customers: "Maamiltoota",
-      suppliers: "Dhiyeessitoota",
-      expenses: "Baasiilee",
-      reports: "Gabaasa",
-      settings: "Qindaa'ina",
-      signout: "Ba'i",
+      dashboard: "Gabatee", products: "Oomishaalee fi Kuusaa",
+      sales: "Gurgurtaa", purchases: "Bittaa",
+      customers: "Maamiltoota", suppliers: "Dhiyeessitoota",
+      expenses: "Baasiilee", reports: "Gabaasa",
+      settings: "Qindaa'ina", signout: "Ba'i",
       workspace: "IDDOO HOJII Daldalaa"
     },
     ar: {
-      dashboard: "لوحة التحكم",
-      products: "المنتجات والمخزون",
-      sales: "المبيعات",
-      purchases: "المشتريات",
-      customers: "العملاء",
-      suppliers: "الموردون",
-      expenses: "المصروفات",
-      reports: "التقارير",
-      settings: "الإعدادات",
-      signout: "تسجيل الخروج",
+      dashboard: "لوحة التحكم", products: "المنتجات والمخزون",
+      sales: "المبيعات", purchases: "المشتريات",
+      customers: "العملاء", suppliers: "الموردون",
+      expenses: "المصروفات", reports: "التقارير",
+      settings: "الإعدادات", signout: "تسجيل الخروج",
       workspace: "مساحة العمل"
     }
   };
@@ -78,9 +60,10 @@
   };
 
   function toast(msg) {
-    $("toast").textContent = msg;
-    $("toast").classList.add("show");
-    setTimeout(() => $("toast").classList.remove("show"), 3200);
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 3200);
   }
 
   function modal(title, msg) {
@@ -103,29 +86,34 @@
 
   function setAuthMode(mode) {
     authMode = mode;
-    $("authTitle").textContent =
-      mode === "signin"
-        ? "Welcome back"
-        : "Create your WIZO POS account";
+    const signup = mode === "signup";
 
-    $("authSubtitle").textContent =
-      mode === "signin"
-        ? "Sign in to continue to WIZO POS."
-        : "Register with your email and a secure password.";
+    $("authTitle").textContent = signup
+      ? "Create your WIZO POS account"
+      : "Welcome back";
+
+    $("authSubtitle").textContent = signup
+      ? "Register with your name, phone, email and password."
+      : "Sign in to continue to WIZO POS.";
 
     $("authSubmit").textContent =
-      mode === "signin" ? "Sign in" : "Create account";
+      signup ? "Create account" : "Sign in";
 
     $("authSwitchText").textContent =
-      mode === "signin"
-        ? "New to WIZO POS?"
-        : "Already have an account?";
+      signup ? "Already have an account?" : "New to WIZO POS?";
 
-    $("authSwitch").textContent =
-      mode === "signin" ? "Create account" : "Sign in";
+    $("authSwitch").textContent = signup ? "Sign in" : "Create account";
+
+    ["authNameWrap", "authPhoneWrap", "authConfirmWrap"].forEach(id => {
+      if ($(id)) $(id).hidden = !signup;
+    });
+
+    ["authName", "authPhone", "authConfirmPassword"].forEach(id => {
+      if ($(id)) $(id).required = signup;
+    });
 
     $("authPassword").autocomplete =
-      mode === "signin" ? "current-password" : "new-password";
+      signup ? "new-password" : "current-password";
   }
 
   async function handleAuth(e) {
@@ -134,21 +122,50 @@
     if (!db) {
       modal(
         "Supabase is not configured",
-        "Check config.js and make sure the Supabase JavaScript library can load."
+        "Check config.js and make sure Supabase can load."
       );
       return;
     }
 
     const email = $("authEmail").value.trim();
     const password = $("authPassword").value;
+    const fullName = $("authName")?.value.trim() || "";
+    const phone = $("authPhone")?.value.trim() || "";
+    const confirmPassword = $("authConfirmPassword")?.value || "";
+
+    if (authMode === "signup") {
+      if (!fullName || !phone) {
+        modal("Missing information", "Please enter your full name and phone number.");
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        modal("Password mismatch", "Password and Re-password must match.");
+        $("authConfirmPassword").focus();
+        return;
+      }
+
+      if (password.length < 6) {
+        modal("Password too short", "Password must contain at least 6 characters.");
+        return;
+      }
+    }
 
     $("authSubmit").disabled = true;
 
     try {
-      const result =
-        authMode === "signin"
-          ? await db.auth.signInWithPassword({ email, password })
-          : await db.auth.signUp({ email, password });
+      const result = authMode === "signin"
+        ? await db.auth.signInWithPassword({ email, password })
+        : await db.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                full_name: fullName,
+                phone: phone
+              }
+            }
+          });
 
       if (result.error) throw result.error;
 
@@ -188,7 +205,6 @@
     }
 
     const row = members[0];
-
     businessId = row.business_id;
     businessName = row.businesses?.name || "My supermarket";
     currency = row.businesses?.default_currency || "SAR";
@@ -204,7 +220,6 @@
 
   async function createBusiness(e) {
     e.preventDefault();
-
     if (!db || !sessionUser) return;
 
     const name = $("businessName").value.trim();
@@ -241,7 +256,7 @@
   function formatMoney(value) {
     return new Intl.NumberFormat(undefined, {
       style: "currency",
-      currency: currency,
+      currency,
       maximumFractionDigits: 2
     }).format(Number(value || 0));
   }
@@ -261,7 +276,6 @@
     }
 
     const rows = data || [];
-
     $("metricProducts").textContent = rows.length;
     $("productCount").textContent = `${rows.length} products`;
 
@@ -271,14 +285,12 @@
     if (!rows.length) {
       tbody.innerHTML =
         '<tr><td colspan="6" class="empty-state">No products yet. Add your first product.</td></tr>';
-
       $("recentProducts").textContent = "No products added yet.";
       return;
     }
 
     for (const p of rows) {
       const tr = document.createElement("tr");
-
       [
         p.name,
         p.barcode || "—",
@@ -291,12 +303,10 @@
         td.textContent = v;
         tr.appendChild(td);
       });
-
       tbody.appendChild(tr);
     }
 
     $("recentProducts").innerHTML = "";
-
     rows.slice(0, 5).forEach(p => {
       const d = document.createElement("div");
       d.className = "recent-row";
@@ -335,50 +345,41 @@
     $("productForm").reset();
     $("productFormWrap").classList.add("hidden");
     toast("Product saved");
-
     await loadProducts();
   }
 
   function filterProducts() {
     const q = $("productSearch").value.toLowerCase();
-
     [...$("productsTable").rows].forEach(r => {
-      r.style.display =
-        r.textContent.toLowerCase().includes(q) ? "" : "none";
+      r.style.display = r.textContent.toLowerCase().includes(q) ? "" : "none";
     });
   }
 
   function navigate(page) {
-    document.querySelectorAll(".page").forEach(p =>
-      p.classList.add("hidden")
-    );
+    document.querySelectorAll(".page").forEach(p => p.classList.add("hidden"));
 
-    const target =
-      page === "settings"
-        ? "settingsPage"
-        : ["dashboard", "products"].includes(page)
-          ? `${page}Page`
-          : "placeholderPage";
+    const target = page === "settings"
+      ? "settingsPage"
+      : ["dashboard", "products"].includes(page)
+        ? `${page}Page`
+        : "placeholderPage";
 
     $(target).classList.remove("hidden");
-
     $("pageTitle").textContent = pageNames[page] || "WIZO POS";
 
     if (target === "placeholderPage") {
-      $("placeholderTitle").textContent =
-        pageNames[page] || "Coming next";
+      $("placeholderTitle").textContent = pageNames[page] || "Coming next";
     }
 
-    document.querySelectorAll(".nav-link[data-page]").forEach(b =>
-      b.classList.toggle("active", b.dataset.page === page)
-    );
+    document.querySelectorAll(".nav-link[data-page]").forEach(b => {
+      b.classList.toggle("active", b.dataset.page === page);
+    });
 
     $("sidebar").classList.remove("open");
   }
 
   function applyLanguage(lang) {
     const dict = words[lang] || words.en;
-
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
 
@@ -393,7 +394,6 @@
 
   async function signOut() {
     if (db) await db.auth.signOut();
-
     sessionUser = null;
     businessId = null;
     showAuth();
@@ -401,47 +401,38 @@
 
   function wire() {
     $("year").textContent = new Date().getFullYear();
-
     $("authForm").addEventListener("submit", handleAuth);
 
-    $("authSwitch").addEventListener("click", () =>
-      setAuthMode(authMode === "signin" ? "signup" : "signin")
-    );
+    $("authSwitch").addEventListener("click", () => {
+      setAuthMode(authMode === "signin" ? "signup" : "signin");
+    });
 
     $("businessForm").addEventListener("submit", createBusiness);
     $("signOutBtn").addEventListener("click", signOut);
 
-    document.querySelectorAll(".nav-link[data-page]").forEach(b =>
-      b.addEventListener("click", () => navigate(b.dataset.page))
-    );
+    document.querySelectorAll(".nav-link[data-page]").forEach(b => {
+      b.addEventListener("click", () => navigate(b.dataset.page));
+    });
 
-    document.querySelectorAll("[data-goto]").forEach(b =>
-      b.addEventListener("click", () => navigate(b.dataset.goto))
-    );
+    document.querySelectorAll("[data-goto]").forEach(b => {
+      b.addEventListener("click", () => navigate(b.dataset.goto));
+    });
 
-    $("addProductBtn").addEventListener("click", () =>
-      $("productFormWrap").classList.remove("hidden")
-    );
+    $("addProductBtn").addEventListener("click", () => {
+      $("productFormWrap").classList.remove("hidden");
+    });
 
-    $("closeProductForm").addEventListener("click", () =>
-      $("productFormWrap").classList.add("hidden")
-    );
+    $("closeProductForm").addEventListener("click", () => {
+      $("productFormWrap").classList.add("hidden");
+    });
 
     $("productForm").addEventListener("submit", saveProduct);
     $("productSearch").addEventListener("input", filterProducts);
     $("refreshBtn").addEventListener("click", loadProducts);
 
-    $("languageSelect").addEventListener("change", e =>
-      applyLanguage(e.target.value)
-    );
-
-    $("authLanguage").addEventListener("change", e =>
-      applyLanguage(e.target.value)
-    );
-
-    $("settingsLanguage").addEventListener("change", e =>
-      applyLanguage(e.target.value)
-    );
+    $("languageSelect").addEventListener("change", e => applyLanguage(e.target.value));
+    $("authLanguage").addEventListener("change", e => applyLanguage(e.target.value));
+    $("settingsLanguage").addEventListener("change", e => applyLanguage(e.target.value));
 
     $("currencySelect").addEventListener("change", e => {
       currency = e.target.value;
@@ -455,13 +446,13 @@
       loadProducts();
     });
 
-    $("menuToggle").addEventListener("click", () =>
-      $("sidebar").classList.toggle("open")
-    );
+    $("menuToggle").addEventListener("click", () => {
+      $("sidebar").classList.toggle("open");
+    });
 
-    $("modalClose").addEventListener("click", () =>
-      $("modalBackdrop").classList.add("hidden")
-    );
+    $("modalClose").addEventListener("click", () => {
+      $("modalBackdrop").classList.add("hidden");
+    });
   }
 
   async function init() {
