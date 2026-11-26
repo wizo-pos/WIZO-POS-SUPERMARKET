@@ -256,7 +256,8 @@ window.WIZO_CONFIG = {
   function money(n){return new Intl.NumberFormat(undefined,{style:'currency',currency,maximumFractionDigits:2}).format(Number(n||0))}
   function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
   function showAuth(){$('authScreen').classList.remove('hidden');$('appScreen').classList.add('hidden')}
-  function updateAccountRoleBadge(){const badge=$('accountRoleBadge');if(!badge)return;const role=(memberRole||'').toLowerCase();badge.dataset.role=role;badge.textContent=({owner:'OWNER',manager:'MANAGER',cashier:'CASHIER'})[role]||'ACCOUNT';badge.title='Signed-in business role: '+(role||'not assigned');}
+  function updateAccountRoleBadge(){const badge=$('accountRoleBadge');if(!badge)return;const role=(memberRole||'').toLowerCase();const lang=$('languageSelect')?.value||'en';const labels={en:{owner:'OWNER',manager:'MANAGER',cashier:'CASHIER'},om:{owner:'ABBAA',manager:'BULCHAA',cashier:'GURGURAA'},ar:{owner:'المالك',manager:'المدير',cashier:'أمين الصندوق'}};badge.dataset.role=role;badge.textContent=(labels[lang]?.[role])||'ACCOUNT';badge.title='Signed-in business role: '+(role||'not assigned');}
+  function applyLanguage(){const lang=$('languageSelect')?.value||'en';const signout=$('signOutBtn');if(signout){const label=signout.querySelector('[data-i18n="signout"]');if(label)label.textContent=lang==='om'?'Ba’i':lang==='ar'?'تسجيل الخروج':'Sign out';}updateAccountRoleBadge();document.documentElement.dir=lang==='ar'?'rtl':'ltr';if($('settingsLanguage'))$('settingsLanguage').value=lang;}
   function showApp(){$('authScreen').classList.add('hidden');$('appScreen').classList.remove('hidden');$('userAvatar').textContent=(user?.email||'W')[0].toUpperCase()}
   function authMode(signup){$('authTitle').textContent=signup?'Create your WIZO POS account':'Welcome back';$('authSubtitle').textContent=signup?'Register with your name, phone, email and password.':'Sign in to continue to WIZO POS.';$('authSubmit').textContent=signup?'Create account':'Sign in';$('authSwitchText').textContent=signup?'Already have an account?':'New to WIZO POS?';$('authSwitch').textContent=signup?'Sign in':'Create account';['authNameWrap','authPhoneWrap','authConfirmWrap'].forEach(id=>$(id).hidden=!signup);['authName','authPhone','authConfirmPassword'].forEach(id=>$(id).required=signup)}
   async function handleAuth(e){e.preventDefault();if(!db)return showModal('Setup error','Check config.js and Supabase connection.');const signup=$('authNameWrap').hidden===false;const email=$('authEmail').value.trim(),password=$('authPassword').value;if(signup&&password!==$('authConfirmPassword').value)return showModal('Password mismatch','Passwords do not match.');try{const r=signup?await db.auth.signUp({email,password,options:{emailRedirectTo:'https://wizo-pos.github.io/WIZO-POS-SUPERMARKET/',data:{full_name:$('authName').value.trim(),phone:$('authPhone').value.trim()}}}):await db.auth.signInWithPassword({email,password});if(r.error)throw r.error;if(signup&&!r.data.session){$toast('Check your email to confirm, then sign in.');authMode(false);return;}user=r.data.user;await loadWorkspace()}catch(e){showModal('Authentication error',e.message)}}
@@ -357,17 +358,22 @@ window.WIZO_CONFIG = {
   async function renderStaffManagement(page){
     const role=page==='cashiers'?'cashier':'manager';
     const title=role==='cashier'?'Cashier Management':'Manager Management';
-    if(memberRole!=='owner'){
+    // Managers may view the cashier list only. Only owners can create or manage staff.
+    const managerView=memberRole==='manager' && page==='cashiers';
+    if(memberRole!=='owner' && !managerView){
       $('moduleMount').innerHTML=`<div class="panel"><h2>${title}</h2><p class="muted">Only the business owner can manage staff accounts.</p></div>`;
       return;
     }
+    const selectFields=managerView
+      ? 'id,full_name,phone,email,role,status,created_at'
+      : 'id,full_name,phone,email,role,salary,status,auth_user_id,created_at';
     const {data:rows,error}=await db.from('employees')
-      .select(managerView?'id,full_name,phone,email,role,status,created_at':'id,full_name,phone,email,role,salary,status,auth_user_id,created_at')
+      .select(selectFields)
       .eq('business_id',businessId).eq('role',role).order('created_at',{ascending:false});
     if(error){$('moduleMount').innerHTML=`<div class="panel"><h3>Cannot load ${title}</h3><p class="error-text">${esc(error.message)}</p></div>`;return;}
     $('moduleMount').innerHTML=`
-      <div class="section-toolbar"><div><h2>${title}</h2><p class="muted">${managerView?'View cashier accounts only.':'Create a staff login and manage '+role+' accounts.'}</p></div>${managerView?'':'<button class="btn btn-primary" id="staffAddBtn">＋ Create '+role+'</button>'}</div>
-      <div class="panel form-panel hidden" id="staffFormPanel">
+      <div class="section-toolbar"><div><h2>${title}</h2><p class="muted">${managerView?'View cashier accounts only.':'Create and manage '+role+' accounts.'}</p></div>${managerView?'':'<button class="btn btn-primary" id="staffAddBtn">＋ Create '+role+'</button>'}</div>
+      ${managerView?'':`<div class="panel form-panel hidden" id="staffFormPanel">
         <div class="panel-head"><div><h3>Create ${role} account</h3><p class="muted">The staff member will sign in using this email and initial password.</p></div><button class="btn btn-light" type="button" id="staffCancel">Close</button></div>
         <form id="staffCreateForm" class="module-form">
           <label>Full name<input name="full_name" required maxlength="120"></label>
@@ -378,11 +384,12 @@ window.WIZO_CONFIG = {
           <div class="form-actions"><button class="btn btn-primary" id="staffCreateSubmit">Create account</button></div>
         </form>
         <p class="security-note">Password is sent securely to Supabase Auth by the Edge Function; it is not saved in the employees table. Give the initial password to the staff member privately.</p>
-      </div>
-      <div class="panel table-panel"><div class="table-tools"><input id="staffSearch" placeholder="Search name, email or phone…"><span id="staffCount">${rows.length} accounts</span></div><div class="table-wrap"><table><thead><tr>${managerView?'<th>Name</th><th>Email</th><th>Phone</th><th>Status</th>':'<th>Name</th><th>Email</th><th>Phone</th><th>Salary</th><th>Status</th><th>Login</th><th>Actions</th>'}</tr></thead><tbody id="staffRows">${rows.map(r=>staffRow(r)).join('')||'<tr><td colspan="${managerView?4:7}" class="empty-state">No staff accounts yet.</td></tr>'}</tbody></table></div></div>`;
+      </div>`}
+      <div class="panel table-panel"><div class="table-tools"><input id="staffSearch" placeholder="Search name, email or phone…"><span id="staffCount">${rows.length} accounts</span></div><div class="table-wrap"><table><thead><tr>${managerView?'<th>Name</th><th>Email</th><th>Phone</th><th>Status</th>':'<th>Name</th><th>Email</th><th>Phone</th><th>Salary</th><th>Status</th><th>Login</th><th>Actions</th>'}</tr></thead><tbody id="staffRows">${rows.map(r=>managerView?managerCashierRow(r):staffRow(r)).join('')||`<tr><td colspan="${managerView?4:7}" class="empty-state">No staff accounts yet.</td></tr>`}</tbody></table></div></div>`;
+    $('staffSearch').oninput=e=>[...$('staffRows').rows].forEach(tr=>tr.hidden=!tr.textContent.toLowerCase().includes(e.target.value.toLowerCase()));
+    if(managerView)return;
     $('staffAddBtn').onclick=()=>$('staffFormPanel').classList.remove('hidden');
     $('staffCancel').onclick=()=>$('staffFormPanel').classList.add('hidden');
-    $('staffSearch').oninput=e=>[...$('staffRows').rows].forEach(tr=>tr.hidden=!tr.textContent.toLowerCase().includes(e.target.value.toLowerCase()));
     $('staffCreateForm').onsubmit=async e=>{
       e.preventDefault();
       const form=e.currentTarget,fd=new FormData(form),submit=$('staffCreateSubmit');
@@ -490,7 +497,7 @@ window.WIZO_CONFIG = {
       .subscribe();
   }
   function scheduleLiveRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(async()=>{if(!businessId)return;await loadDashboard();if(currentPage==='reports')await renderReports();},700);}
-  function wire(){ $('year').textContent=new Date().getFullYear();$('authForm').addEventListener('submit',handleAuth);$('authSwitch').onclick=()=>authMode(!$('authNameWrap').hidden===false);$('businessForm').addEventListener('submit',createBusiness);$('signOutBtn').onclick=async()=>{await db.auth.signOut();user=null;businessId=null;memberRole='';updateAccountRoleBadge();showAuth()};document.querySelectorAll('.nav-link[data-page]').forEach(b=>b.onclick=()=>navigate(b.dataset.page));document.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>navigate(b.dataset.goto));$('addProductBtn').onclick=()=>{if(memberRole!=='owner')return showModal('Access denied','Only the Owner can add products.');$('productFormWrap').classList.remove('hidden')};$('closeProductForm').onclick=()=>$('productFormWrap').classList.add('hidden');$('productForm').addEventListener('submit',saveProduct);$('productSearch').oninput=e=>[...$('productsTable').rows].forEach(r=>r.hidden=!r.textContent.toLowerCase().includes(e.target.value.toLowerCase()));$('refreshBtn').onclick=loadDashboard;$('menuToggle').onclick=()=>$('sidebar').classList.toggle('open');$('modalClose').onclick=()=>$('modalBackdrop').classList.add('hidden');$('currencySelect').onchange=e=>{currency=e.target.value;loadDashboard()};$('settingsCurrency').onchange=e=>{currency=e.target.value;$('currencySelect').value=currency;loadDashboard()};$('languageSelect').onchange=e=>{document.documentElement.dir=e.target.value==='ar'?'rtl':'ltr'};$('settingsLanguage').onchange=e=>{document.documentElement.dir=e.target.value==='ar'?'rtl':'ltr'};}
+  function wire(){ $('year').textContent=new Date().getFullYear();applyLanguage();$('authForm').addEventListener('submit',handleAuth);$('authSwitch').onclick=()=>authMode(!$('authNameWrap').hidden===false);$('businessForm').addEventListener('submit',createBusiness);$('signOutBtn').onclick=async()=>{await db.auth.signOut();user=null;businessId=null;memberRole='';updateAccountRoleBadge();showAuth()};document.querySelectorAll('.nav-link[data-page]').forEach(b=>b.onclick=()=>navigate(b.dataset.page));document.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>navigate(b.dataset.goto));$('addProductBtn').onclick=()=>{if(memberRole!=='owner')return showModal('Access denied','Only the Owner can add products.');$('productFormWrap').classList.remove('hidden')};$('closeProductForm').onclick=()=>$('productFormWrap').classList.add('hidden');$('productForm').addEventListener('submit',saveProduct);$('productSearch').oninput=e=>[...$('productsTable').rows].forEach(r=>r.hidden=!r.textContent.toLowerCase().includes(e.target.value.toLowerCase()));$('refreshBtn').onclick=loadDashboard;$('menuToggle').onclick=()=>$('sidebar').classList.toggle('open');$('modalClose').onclick=()=>$('modalBackdrop').classList.add('hidden');$('currencySelect').onchange=e=>{currency=e.target.value;loadDashboard()};$('settingsCurrency').onchange=e=>{currency=e.target.value;$('currencySelect').value=currency;loadDashboard()};$('languageSelect').onchange=e=>{applyLanguage()};$('settingsLanguage').onchange=e=>{$('languageSelect').value=e.target.value;applyLanguage()};}
   async function init(){wire();if(!ready){$('connectionText').textContent='Configuration missing';return;}const {data:{session}}=await db.auth.getSession();if(session){user=session.user;await loadWorkspace()}else showAuth();db.auth.onAuthStateChange((event,session)=>{if(session?.user){user=session.user;loadWorkspace()}else if(event==='SIGNED_OUT')showAuth()});}
   document.addEventListener('DOMContentLoaded',init);
 })();
