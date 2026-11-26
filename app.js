@@ -17,7 +17,29 @@
   async function checkAdmin(){isSuperAdmin=false;const {data,error}=await db.from('wizo_admin_roles').select('role').eq('user_id',user.id).eq('role','super_admin').maybeSingle();if(error){console.warn('Super Admin check:',error.message);return;}isSuperAdmin=!!data;$('superAdminNav').hidden=!isSuperAdmin;}
   async function loadWorkspace(){showApp();await checkAdmin();const {data,error}=await db.from('business_members').select('business_id,role,businesses(id,name,default_currency)').eq('user_id',user.id).limit(1);if(error)return showModal('Workspace error',error.message);if(!data?.length){$('businessSetup').classList.remove('hidden');$('dashboardPage').classList.remove('hidden');$('welcomeTitle').textContent='Create your first business';return;}const m=data[0];businessId=m.business_id;businessName=m.businesses?.name||'My supermarket';currency=m.businesses?.default_currency||'SAR';$('businessSetup').classList.add('hidden');$('sideBusinessName').textContent=businessName;$('welcomeTitle').textContent=`Welcome to ${businessName}`;$('currencySelect').value=currency;$('settingsCurrency').value=currency;await loadDashboard();}
   async function createBusiness(e){e.preventDefault();const {data,error}=await db.rpc('create_business',{p_name:$('businessName').value.trim(),p_owner_name:$('ownerName').value.trim(),p_currency:$('businessCurrency').value});if(error)return showModal('Business setup failed',error.message);$toast('Business created');await loadWorkspace()}
-  async function loadDashboard(){if(!businessId)return;const today=new Date();today.setHours(0,0,0,0);const iso=today.toISOString();const [s,p,pr]=await Promise.all([db.from('sales').select('total').eq('business_id',businessId).gte('created_at',iso).eq('status','completed'),db.from('purchases').select('total').eq('business_id',businessId),db.from('products').select('id,stock_quantity').eq('business_id',businessId)]);$('metricSales').textContent=money((s.data||[]).reduce((a,x)=>a+Number(x.total),0));$('metricPurchases').textContent=money((p.data||[]).reduce((a,x)=>a+Number(x.total),0));$('metricProducts').textContent=(pr.data||[]).length;$('metricProfit').textContent='—';await loadProducts();}
+  async function updateSetupProgress(productCount){
+    if(!businessId)return;
+    const hardwareKey=`wizo_hardware_setup_${businessId}`;
+    const hardwareDone=localStorage.getItem(hardwareKey)==='true';
+    const [cashierResult]=await Promise.all([
+      db.from('employees').select('id',{count:'exact',head:true}).eq('business_id',businessId).eq('role','cashier').eq('status','active')
+    ]);
+    const steps=[
+      ['setupAccount',!!user],
+      ['setupBusiness',!!businessId],
+      ['setupProducts',Number(productCount||0)>0],
+      ['setupCashiers',!cashierResult.error&&(cashierResult.count||0)>0],
+      ['setupHardware',hardwareDone]
+    ];
+    const done=steps.filter(x=>x[1]).length,percent=Math.round(done/steps.length*100);
+    steps.forEach(([id,complete])=>{const el=$(id);if(!el)return;el.classList.toggle('done',complete);const icon=el.querySelector('.setup-check-icon');if(icon)icon.textContent=complete?'✓':'○';});
+    $('setupProgressLabel').textContent=`${done}/${steps.length} complete`;
+    $('setupProgressBar').style.width=`${percent}%`;
+    $('setupProgressPercent').textContent=`${percent}% complete`;
+    $('gettingStartedPanel').classList.toggle('hidden',done===steps.length);
+    const hardware=$('hardwareSetupDone');if(hardware){hardware.checked=hardwareDone;hardware.onchange=()=>{localStorage.setItem(hardwareKey,String(hardware.checked));updateSetupProgress(productCount);};}
+  }
+  async function loadDashboard(){if(!businessId)return;const today=new Date();today.setHours(0,0,0,0);const iso=today.toISOString();const [s,p,pr]=await Promise.all([db.from('sales').select('total').eq('business_id',businessId).gte('created_at',iso).eq('status','completed'),db.from('purchases').select('total').eq('business_id',businessId),db.from('products').select('id,stock_quantity').eq('business_id',businessId)]);$('metricSales').textContent=money((s.data||[]).reduce((a,x)=>a+Number(x.total),0));$('metricPurchases').textContent=money((p.data||[]).reduce((a,x)=>a+Number(x.total),0));$('metricProducts').textContent=(pr.data||[]).length;$('metricProfit').textContent='—';await loadProducts();await updateSetupProgress((pr.data||[]).length);}
   async function loadProducts(){if(!businessId)return;const {data,error}=await db.from('products').select('id,name,barcode,unit,cost_price,selling_price,stock_quantity,low_stock_threshold').eq('business_id',businessId).order('name');if(error){console.warn(error);return;}const rows=data||[];$('metricProducts').textContent=rows.length;$('productCount').textContent=`${rows.length} products`;$('productsTable').innerHTML=rows.map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.barcode||'—')}</td><td>${esc(p.unit)}</td><td>${money(p.cost_price)}</td><td>${money(p.selling_price)}</td><td>${p.stock_quantity}</td></tr>`).join('')||'<tr><td colspan="6" class="empty-state">No products yet.</td></tr>';$('recentProducts').innerHTML=rows.slice(0,5).map(p=>`<div class="recent-row">${esc(p.name)} · ${p.stock_quantity} ${esc(p.unit)}</div>`).join('')||'No products added yet.';}
   async function saveProduct(e){e.preventDefault();const payload={business_id:businessId,name:$('productName').value.trim(),barcode:$('productBarcode').value.trim()||null,unit:$('productUnit').value,cost_price:+$('costPrice').value,selling_price:+$('sellingPrice').value,stock_quantity:+$('openingStock').value};const {error}=await db.from('products').insert(payload);if(error)return showModal('Save product failed',error.message);$('productForm').reset();$('productFormWrap').classList.add('hidden');$toast('Product saved');await loadProducts();}
   const modules={
