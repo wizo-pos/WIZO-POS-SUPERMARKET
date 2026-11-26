@@ -17,3 +17,9 @@
 .nav-link b{font-size:11px}
 .side-bottom{flex:none;margin-top:8px;background:var(--navy)}
 @media(max-width:760px){.sidebar{position:fixed;top:0;left:-270px;height:100dvh;min-height:100dvh;max-height:100dvh;overflow:hidden}.sidebar.open{left:0}.nav-list{min-height:0;max-height:none}.side-bottom{padding-bottom:env(safe-area-inset-bottom)}}
+
+/* Sign out action in the top header */
+.top-signout{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #d9e7e8;background:#fff;color:#b33b45;border-radius:9px;padding:9px 13px;font-weight:700;font-size:12px;white-space:nowrap}
+.top-signout:hover{background:#fff1f1;border-color:#efc5c8}
+.top-signout span{font-size:17px;line-height:1}
+@media(max-width:760px){.top-signout{padding:8px 9px;font-size:11px;gap:5px}.top-actions{gap:5px}}
