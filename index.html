@@ -37,8 +37,27 @@
         <h2 id="authTitle">Welcome back</h2>
         <p id="authSubtitle" class="muted">Sign in to continue to WIZO POS.</p>
         <form id="authForm">
-          <label>Email address<input id="authEmail" type="email" autocomplete="email" placeholder="you@company.com" required></label>
-          <label>Password<input id="authPassword" type="password" autocomplete="current-password" minlength="6" placeholder="At least 6 characters" required></label>
+          <label id="authNameWrap" class="signup-field" hidden>Full name
+            <input id="authName" type="text" autocomplete="name" placeholder="Enter your full name">
+          </label>
+          <label id="authPhoneWrap" class="signup-field" hidden>Phone number
+            <input id="authPhone" type="tel" autocomplete="tel" placeholder="+966 5XXXXXXXX">
+          </label>
+          <label>Email address
+            <input id="authEmail" type="email" autocomplete="email" placeholder="you@company.com" required>
+          </label>
+          <label>Password
+            <span class="password-control">
+              <input id="authPassword" type="password" autocomplete="current-password" minlength="6" placeholder="At least 6 characters" required>
+              <button class="password-toggle" type="button" data-toggle-password="authPassword" aria-label="Show password" aria-pressed="false">👁</button>
+            </span>
+          </label>
+          <label id="authConfirmWrap" class="signup-field" hidden>Re-password
+            <span class="password-control">
+              <input id="authConfirmPassword" type="password" autocomplete="new-password" minlength="6" placeholder="Enter password again">
+              <button class="password-toggle" type="button" data-toggle-password="authConfirmPassword" aria-label="Show password" aria-pressed="false">👁</button>
+            </span>
+          </label>
           <button id="authSubmit" class="btn btn-primary full" type="submit">Sign in</button>
         </form>
         <div class="auth-switch"><span id="authSwitchText">New to WIZO POS?</span> <button id="authSwitch" class="text-button" type="button">Create account</button></div>
@@ -116,5 +135,64 @@
   </main>
 
   <div id="modalBackdrop" class="modal-backdrop hidden"><div class="modal"><h3 id="modalTitle">Notice</h3><p id="modalMessage"></p><button id="modalClose" class="btn btn-primary">Close</button></div></div>
+
+  <style>
+    .password-control{display:flex;align-items:center;gap:8px;width:100%}
+    .password-control input{flex:1;min-width:0}
+    .password-toggle{border:1px solid #d7e1e5;background:#fff;border-radius:10px;padding:10px 12px;cursor:pointer}
+    .signup-field[hidden]{display:none!important}
+  </style>
+  <script>
+    (() => {
+      const form = document.getElementById('authForm');
+      const switchButton = document.getElementById('authSwitch');
+      const nameWrap = document.getElementById('authNameWrap');
+      const phoneWrap = document.getElementById('authPhoneWrap');
+      const confirmWrap = document.getElementById('authConfirmWrap');
+      const nameInput = document.getElementById('authName');
+      const phoneInput = document.getElementById('authPhone');
+      const confirmInput = document.getElementById('authConfirmPassword');
+      const passwordInput = document.getElementById('authPassword');
+      let signupMode = false;
+
+      function setSignupFields(show) {
+        signupMode = show;
+        [nameWrap, phoneWrap, confirmWrap].forEach(el => el.hidden = !show);
+        nameInput.required = show;
+        phoneInput.required = show;
+        confirmInput.required = show;
+        passwordInput.autocomplete = show ? 'new-password' : 'current-password';
+        if (!show) {
+          nameInput.value = '';
+          phoneInput.value = '';
+          confirmInput.value = '';
+        }
+      }
+
+      switchButton.addEventListener('click', () => {
+        setSignupFields(!signupMode);
+      });
+
+      document.querySelectorAll('[data-toggle-password]').forEach(button => {
+        button.addEventListener('click', () => {
+          const input = document.getElementById(button.dataset.togglePassword);
+          const reveal = input.type === 'password';
+          input.type = reveal ? 'text' : 'password';
+          button.setAttribute('aria-label', reveal ? 'Hide password' : 'Show password');
+          button.setAttribute('aria-pressed', String(reveal));
+        });
+      });
+
+      form.addEventListener('submit', event => {
+        if (signupMode && passwordInput.value !== confirmInput.value) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          confirmInput.setCustomValidity('Passwords do not match.');
+          confirmInput.reportValidity();
+          confirmInput.addEventListener('input', () => confirmInput.setCustomValidity(''), {once:true});
+        }
+      }, true);
+    })();
+  </script>
 </body>
 </html>
