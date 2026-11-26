@@ -103,7 +103,7 @@
         <button class="nav-link" data-page="settings"><span>⚙</span><b>Settings</b></button>
         <button class="nav-link" data-page="super-admin" id="superAdminNav" hidden><span>★</span><b>Super Admin</b></button>
       </nav>
-      <div class="side-bottom"><div class="connection"><span class="online-dot"></span><span id="connectionText">Cloud ready</span></div></div>
+      <div class="side-bottom"><div class="connection"><span class="online-dot"></span><span id="connectionText">Cloud ready</span></div><button id="signOutBtn" class="nav-link signout"><span>⇥</span><b data-i18n="signout">Sign out</b></button></div>
     </aside>
 
     <section class="main-area">
@@ -113,7 +113,6 @@
         <div class="top-actions">
           <select id="languageSelect" aria-label="Language"><option value="en">English</option><option value="om">Afaan Oromoo</option><option value="ar">العربية</option></select>
           <select id="currencySelect" aria-label="Currency"><option value="SAR">SAR</option><option value="ETB">ETB</option><option value="USD">USD</option><option value="AED">AED</option><option value="EUR">EUR</option></select>
-          <button id="signOutBtn" class="top-signout" type="button"><span aria-hidden="true">⇥</span><b data-i18n="signout">Sign out</b></button>
           <div class="avatar" id="userAvatar">W</div>
         </div>
       </header>
@@ -138,7 +137,7 @@
             <article class="metric-card"><div class="metric-label">STOCK PRODUCTS</div><div class="metric-value" id="metricProducts">0</div><div class="metric-foot">Products in your catalogue</div></article>
           </div>
           <div class="dashboard-grid">
-            <article class="panel"><div class="panel-head"><div><h3>Getting started</h3><p class="muted">Your WIZO POS workspace</p></div><span class="status-pill">Milestone 1</span></div><div class="check-list"><div>✓ <span>Account authentication</span></div><div>✓ <span>Business workspace setup</span></div><div>○ <span>Add products and opening stock</span></div><div>○ <span>Configure cashiers and permissions</span></div><div>○ <span>Connect receipt printer and barcode scanner</span></div></div></article>
+            <article class="panel setup-progress-panel" id="gettingStartedPanel"><div class="panel-head"><div><h3>Getting started</h3><p class="muted">Complete these steps to set up your supermarket.</p></div><span class="status-pill" id="setupProgressLabel">0/5 complete</span></div><div class="setup-progress-track"><div id="setupProgressBar" class="setup-progress-fill" style="width:0%"></div></div><div class="setup-progress-percent" id="setupProgressPercent">0% complete</div><div class="check-list setup-check-list"><div id="setupAccount"><span class="setup-check-icon">○</span><span>Account authentication</span></div><div id="setupBusiness"><span class="setup-check-icon">○</span><span>Business workspace setup</span></div><div id="setupProducts"><span class="setup-check-icon">○</span><span>Add products and opening stock</span><button type="button" class="text-button" data-goto="products">Add products</button></div><div id="setupCashiers"><span class="setup-check-icon">○</span><span>Configure cashiers and permissions</span><button type="button" class="text-button" data-goto="cashiers">Manage cashiers</button></div><div id="setupHardware"><span class="setup-check-icon">○</span><span>Connect receipt printer and barcode scanner</span><label class="setup-manual-check"><input type="checkbox" id="hardwareSetupDone"> Mark done</label></div></div></article>
             <article class="panel"><div class="panel-head"><div><h3>Recent products</h3><p class="muted">Latest items in your catalogue</p></div><button class="text-button" data-goto="products">View all</button></div><div id="recentProducts" class="empty-state">No products added yet.</div></article>
           </div>
         </section>
@@ -165,6 +164,15 @@
     .signup-field[hidden]{display:none!important}
     .nav-section-title{padding:18px 14px 7px;color:#9db5c4;font-size:10px;font-weight:800;letter-spacing:1.2px}
     #superAdminNav[hidden]{display:none!important}
+    .setup-progress-track{height:9px;background:#e8efef;border-radius:20px;overflow:hidden;margin:20px 0 8px}
+    .setup-progress-fill{height:100%;background:linear-gradient(90deg,#11998e,#36b7a9);border-radius:20px;transition:width .25s ease}
+    .setup-progress-percent{font-size:11px;color:#72838a;font-weight:700;text-align:right}
+    .setup-check-list>div{display:flex;align-items:center;gap:9px;flex-wrap:wrap;color:#50636b;font-weight:500}
+    .setup-check-icon{color:#9aa8ad;font-size:18px;font-weight:800;width:18px}
+    .setup-check-list>div.done .setup-check-icon{color:#11998e}
+    .setup-check-list .text-button{margin-left:auto;font-size:11px}
+    .setup-manual-check{display:flex;align-items:center;gap:5px;margin-left:auto;font-size:10px}
+    .setup-manual-check input{width:auto}
   </style>
   <script>
     (() => {
