@@ -72,15 +72,36 @@
       <div class="side-brand"><div class="brand-mark small">W</div><div><strong>WIZO POS</strong><small>SUPERMARKET</small></div></div>
       <div class="business-switch"><span class="business-dot"></span><div><small>ACTIVE BUSINESS</small><strong id="sideBusinessName">My supermarket</strong></div></div>
       <nav class="nav-list">
-        <button class="nav-link active" data-page="dashboard"><span>▦</span><b data-i18n="dashboard">Dashboard</b></button>
-        <button class="nav-link" data-page="products"><span>▣</span><b data-i18n="products">Products & Stock</b></button>
-        <button class="nav-link" data-page="sales"><span>↗</span><b data-i18n="sales">Sales</b></button>
-        <button class="nav-link" data-page="purchases"><span>⇩</span><b data-i18n="purchases">Purchases</b></button>
-        <button class="nav-link" data-page="customers"><span>♙</span><b data-i18n="customers">Customers</b></button>
-        <button class="nav-link" data-page="suppliers"><span>♧</span><b data-i18n="suppliers">Suppliers</b></button>
-        <button class="nav-link" data-page="expenses"><span>↘</span><b data-i18n="expenses">Expenses</b></button>
-        <button class="nav-link" data-page="reports"><span>▤</span><b data-i18n="reports">Reports</b></button>
-        <button class="nav-link" data-page="settings"><span>⚙</span><b data-i18n="settings">Settings</b></button>
+        <button class="nav-link active" data-page="dashboard"><span>▦</span><b>Dashboard</b></button>
+
+        <div class="nav-section-title">INVENTORY MANAGEMENT</div>
+        <button class="nav-link" data-page="products"><span>▣</span><b>Products & Stock</b></button>
+        <button class="nav-link" data-page="categories"><span>▤</span><b>Categories</b></button>
+        <button class="nav-link" data-page="barcode"><span>▥</span><b>Barcode Management</b></button>
+        <button class="nav-link" data-page="stock-adjustment"><span>±</span><b>Stock Adjustment</b></button>
+        <button class="nav-link" data-page="stock-transfer"><span>⇄</span><b>Stock Transfer</b></button>
+        <button class="nav-link" data-page="expiry"><span>◷</span><b>Expiry Date</b></button>
+        <button class="nav-link" data-page="low-stock"><span>⚠</span><b>Low Stock Alerts</b></button>
+        <button class="nav-link" data-page="inventory-audit"><span>✓</span><b>Inventory Audit</b></button>
+
+        <div class="nav-section-title">SALES & FINANCE</div>
+        <button class="nav-link" data-page="pos"><span>▣</span><b>POS</b></button>
+        <button class="nav-link" data-page="sales-history"><span>↗</span><b>Sales History</b></button>
+        <button class="nav-link" data-page="purchases"><span>⇩</span><b>Purchases</b></button>
+        <button class="nav-link" data-page="returns"><span>↩</span><b>Returns & Refunds</b></button>
+        <button class="nav-link" data-page="suppliers"><span>♧</span><b>Suppliers</b></button>
+        <button class="nav-link" data-page="expenses"><span>↘</span><b>Expenses</b></button>
+        <button class="nav-link" data-page="cash-register"><span>▤</span><b>Cash Register</b></button>
+        <button class="nav-link" data-page="budget"><span>◈</span><b>Budget</b></button>
+        <button class="nav-link" data-page="tax"><span>%</span><b>Tax / VAT</b></button>
+        <button class="nav-link" data-page="reports"><span>▧</span><b>Reports</b></button>
+
+        <div class="nav-section-title">ADMINISTRATION</div>
+        <button class="nav-link" data-page="cashiers"><span>♙</span><b>Cashier Management</b></button>
+        <button class="nav-link" data-page="managers"><span>♙</span><b>Manager Management</b></button>
+        <button class="nav-link" data-page="employees"><span>♧</span><b>Employees</b></button>
+        <button class="nav-link" data-page="settings"><span>⚙</span><b>Settings</b></button>
+        <button class="nav-link" data-page="super-admin" id="superAdminNav" hidden><span>★</span><b>Super Admin</b></button>
       </nav>
       <div class="side-bottom"><div class="connection"><span class="online-dot"></span><span id="connectionText">Cloud ready</span></div><button id="signOutBtn" class="nav-link signout"><span>⇥</span><b data-i18n="signout">Sign out</b></button></div>
     </aside>
@@ -127,7 +148,7 @@
           <div id="productFormWrap" class="panel form-panel hidden"><div class="panel-head"><div><h3>Add a product</h3><p class="muted">Product details and pricing</p></div><button id="closeProductForm" class="icon-btn" type="button">✕</button></div><form id="productForm" class="product-form"><label>Product name<input id="productName" required></label><label>Barcode<input id="productBarcode"></label><label>Unit<select id="productUnit"><option>piece</option><option>kg</option><option>gram</option><option>liter</option><option>box</option><option>carton</option></select></label><label>Cost price<input id="costPrice" type="number" min="0" step="0.01" required></label><label>Selling price<input id="sellingPrice" type="number" min="0" step="0.01" required></label><label>Opening stock<input id="openingStock" type="number" min="0" step="0.001" value="0" required></label><button class="btn btn-primary" type="submit">Save product</button></form></div>
         </section>
 
-        <section id="placeholderPage" class="page hidden"><div class="panel coming-panel"><div class="coming-icon">◈</div><h2 id="placeholderTitle">Coming next</h2><p class="muted">This module is planned for the next WIZO POS development milestone.</p></div></section>
+        <section id="modulePage" class="page hidden"><div id="moduleMount"></div></section>
 
         <section id="settingsPage" class="page hidden"><div class="panel settings-panel"><h2>Business settings</h2><p class="muted">Choose the language and main currency for your workspace.</p><div class="settings-row"><label for="settingsLanguage">Application language</label><select id="settingsLanguage"><option value="en">English</option><option value="om">Afaan Oromoo</option><option value="ar">العربية</option></select></div><div class="settings-row"><label for="settingsCurrency">Main currency</label><select id="settingsCurrency"><option value="SAR">SAR — Saudi Riyal</option><option value="ETB">ETB — Ethiopian Birr</option><option value="USD">USD — US Dollar</option><option value="AED">AED — UAE Dirham</option><option value="EUR">EUR — Euro</option></select></div><p class="security-note">Currency selection changes display preferences. Multi-currency transaction and exchange-rate accounting will be added in a later milestone.</p></div></section>
       </div>
@@ -141,6 +162,8 @@
     .password-control input{flex:1;min-width:0}
     .password-toggle{border:1px solid #d7e1e5;background:#fff;border-radius:10px;padding:10px 12px;cursor:pointer}
     .signup-field[hidden]{display:none!important}
+    .nav-section-title{padding:18px 14px 7px;color:#9db5c4;font-size:10px;font-weight:800;letter-spacing:1.2px}
+    #superAdminNav[hidden]{display:none!important}
   </style>
   <script>
     (() => {
