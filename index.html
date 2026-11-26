@@ -653,7 +653,18 @@ window.WIZO_CONFIG = {
     if(typed!=='DELETE')return;
     if(!confirm('Final confirmation: permanently delete this business data? This cannot be undone.'))return;
     const status=$('dataToolsStatus');status.textContent='Deleting business records…';
-    // Delete child records before their parent records.
+    // Delete dependent rows by this business's product IDs first. Some legacy
+    // purchase_items rows may not be reached through the purchases relation.
+    const {data:businessProducts,error:productLookupError}=await db.from('products').select('id').eq('business_id',businessId);
+    if(productLookupError){status.textContent='Could not prepare product cleanup: '+productLookupError.message;return showModal('Delete stopped',status.textContent);}
+    const productIds=(businessProducts||[]).map(x=>x.id);
+    if(productIds.length){
+      for(const table of ['purchase_items','sale_items']){
+        const {error}=await db.from(table).delete().in('product_id',productIds);
+        if(error){status.textContent='Stopped at '+table+' (product-linked records): '+error.message;return showModal('Delete incomplete',status.textContent);}
+      }
+    }
+    // Then delete remaining child records before their parent records.
     const steps=[
       ['purchase_items','purchase_id','purchases'],['sale_items','sale_id','sales'],
       ...['product_barcodes','product_units','sales_returns','stock_adjustments','stock_transfers','product_batches','cash_register_sessions','expenses','purchases','sales','products','product_categories','suppliers','customers','employees','budgets','business_tax_settings'].map(t=>[t,null,null])
