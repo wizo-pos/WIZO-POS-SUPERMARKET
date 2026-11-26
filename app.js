@@ -1,488 +1,67 @@
 (() => {
   "use strict";
-
-  const cfg = window.WIZO_CONFIG || {};
-  const clientReady = !!(
-    window.supabase &&
-    cfg.SUPABASE_URL &&
-    cfg.SUPABASE_PUBLISHABLE_KEY
-  );
-  const db = clientReady
-    ? window.supabase.createClient(
-        cfg.SUPABASE_URL,
-        cfg.SUPABASE_PUBLISHABLE_KEY
-      )
-    : null;
-
-  const $ = id => document.getElementById(id);
-  let sessionUser = null;
-  let businessId = null;
-  let businessName = "";
-  let authMode = "signin";
-  let currency = "SAR";
-
-  const words = {
-    en: {
-      dashboard: "Dashboard", products: "Products & Stock",
-      sales: "Sales", purchases: "Purchases", customers: "Customers",
-      suppliers: "Suppliers", expenses: "Expenses", reports: "Reports",
-      settings: "Settings", signout: "Sign out",
-      workspace: "BUSINESS WORKSPACE"
-    },
-    om: {
-      dashboard: "Gabatee", products: "Oomishaalee fi Kuusaa",
-      sales: "Gurgurtaa", purchases: "Bittaa",
-      customers: "Maamiltoota", suppliers: "Dhiyeessitoota",
-      expenses: "Baasiilee", reports: "Gabaasa",
-      settings: "Qindaa'ina", signout: "Ba'i",
-      workspace: "IDDOO HOJII Daldalaa"
-    },
-    ar: {
-      dashboard: "لوحة التحكم", products: "المنتجات والمخزون",
-      sales: "المبيعات", purchases: "المشتريات",
-      customers: "العملاء", suppliers: "الموردون",
-      expenses: "المصروفات", reports: "التقارير",
-      settings: "الإعدادات", signout: "تسجيل الخروج",
-      workspace: "مساحة العمل"
-    }
+  const cfg=window.WIZO_CONFIG||{};
+  const ready=!!(window.supabase&&cfg.SUPABASE_URL&&cfg.SUPABASE_PUBLISHABLE_KEY);
+  const db=ready?window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY):null;
+  const $=id=>document.getElementById(id);
+  let user=null,businessId=null,businessName='',currency='SAR',isSuperAdmin=false,cart=[];
+  const titles={dashboard:'Dashboard',products:'Products & Stock',categories:'Categories',barcode:'Barcode Management','stock-adjustment':'Stock Adjustment','stock-transfer':'Stock Transfer',expiry:'Expiry Date','low-stock':'Low Stock Alerts','inventory-audit':'Inventory Audit',pos:'POS','sales-history':'Sales History',sales:'Sales',purchases:'Purchases',returns:'Returns & Refunds',customers:'Customers',suppliers:'Suppliers',expenses:'Expenses','cash-register':'Cash Register',budget:'Budget',tax:'Tax / VAT',reports:'Reports',cashiers:'Cashier Management',managers:'Manager Management',employees:'Employees',settings:'Settings','super-admin':'Super Admin'};
+  const $toast=m=>{const t=$('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000)};
+  function showModal(t,m){$('modalTitle').textContent=t;$('modalMessage').textContent=m;$('modalBackdrop').classList.remove('hidden')}
+  function money(n){return new Intl.NumberFormat(undefined,{style:'currency',currency,maximumFractionDigits:2}).format(Number(n||0))}
+  function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  function showAuth(){$('authScreen').classList.remove('hidden');$('appScreen').classList.add('hidden')}
+  function showApp(){$('authScreen').classList.add('hidden');$('appScreen').classList.remove('hidden');$('userAvatar').textContent=(user?.email||'W')[0].toUpperCase()}
+  function authMode(signup){$('authTitle').textContent=signup?'Create your WIZO POS account':'Welcome back';$('authSubtitle').textContent=signup?'Register with your name, phone, email and password.':'Sign in to continue to WIZO POS.';$('authSubmit').textContent=signup?'Create account':'Sign in';$('authSwitchText').textContent=signup?'Already have an account?':'New to WIZO POS?';$('authSwitch').textContent=signup?'Sign in':'Create account';['authNameWrap','authPhoneWrap','authConfirmWrap'].forEach(id=>$(id).hidden=!signup);['authName','authPhone','authConfirmPassword'].forEach(id=>$(id).required=signup)}
+  async function handleAuth(e){e.preventDefault();if(!db)return showModal('Setup error','Check config.js and Supabase connection.');const signup=$('authNameWrap').hidden===false;const email=$('authEmail').value.trim(),password=$('authPassword').value;if(signup&&password!==$('authConfirmPassword').value)return showModal('Password mismatch','Passwords do not match.');try{const r=signup?await db.auth.signUp({email,password,options:{data:{full_name:$('authName').value.trim(),phone:$('authPhone').value.trim()}}}):await db.auth.signInWithPassword({email,password});if(r.error)throw r.error;if(signup&&!r.data.session){$toast('Check your email to confirm, then sign in.');authMode(false);return;}user=r.data.user;await loadWorkspace()}catch(e){showModal('Authentication error',e.message)}}
+  async function checkAdmin(){isSuperAdmin=false;const {data,error}=await db.from('wizo_admin_roles').select('role').eq('user_id',user.id).eq('role','super_admin').maybeSingle();if(error){console.warn('Super Admin check:',error.message);return;}isSuperAdmin=!!data;$('superAdminNav').hidden=!isSuperAdmin;}
+  async function loadWorkspace(){showApp();await checkAdmin();const {data,error}=await db.from('business_members').select('business_id,role,businesses(id,name,default_currency)').eq('user_id',user.id).limit(1);if(error)return showModal('Workspace error',error.message);if(!data?.length){$('businessSetup').classList.remove('hidden');$('dashboardPage').classList.remove('hidden');$('welcomeTitle').textContent='Create your first business';return;}const m=data[0];businessId=m.business_id;businessName=m.businesses?.name||'My supermarket';currency=m.businesses?.default_currency||'SAR';$('businessSetup').classList.add('hidden');$('sideBusinessName').textContent=businessName;$('welcomeTitle').textContent=`Welcome to ${businessName}`;$('currencySelect').value=currency;$('settingsCurrency').value=currency;await loadDashboard();}
+  async function createBusiness(e){e.preventDefault();const {data,error}=await db.rpc('create_business',{p_name:$('businessName').value.trim(),p_owner_name:$('ownerName').value.trim(),p_currency:$('businessCurrency').value});if(error)return showModal('Business setup failed',error.message);$toast('Business created');await loadWorkspace()}
+  async function loadDashboard(){if(!businessId)return;const today=new Date();today.setHours(0,0,0,0);const iso=today.toISOString();const [s,p,pr]=await Promise.all([db.from('sales').select('total').eq('business_id',businessId).gte('created_at',iso).eq('status','completed'),db.from('purchases').select('total').eq('business_id',businessId),db.from('products').select('id,stock_quantity').eq('business_id',businessId)]);$('metricSales').textContent=money((s.data||[]).reduce((a,x)=>a+Number(x.total),0));$('metricPurchases').textContent=money((p.data||[]).reduce((a,x)=>a+Number(x.total),0));$('metricProducts').textContent=(pr.data||[]).length;$('metricProfit').textContent='—';await loadProducts();}
+  async function loadProducts(){if(!businessId)return;const {data,error}=await db.from('products').select('id,name,barcode,unit,cost_price,selling_price,stock_quantity,low_stock_threshold').eq('business_id',businessId).order('name');if(error){console.warn(error);return;}const rows=data||[];$('metricProducts').textContent=rows.length;$('productCount').textContent=`${rows.length} products`;$('productsTable').innerHTML=rows.map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.barcode||'—')}</td><td>${esc(p.unit)}</td><td>${money(p.cost_price)}</td><td>${money(p.selling_price)}</td><td>${p.stock_quantity}</td></tr>`).join('')||'<tr><td colspan="6" class="empty-state">No products yet.</td></tr>';$('recentProducts').innerHTML=rows.slice(0,5).map(p=>`<div class="recent-row">${esc(p.name)} · ${p.stock_quantity} ${esc(p.unit)}</div>`).join('')||'No products added yet.';}
+  async function saveProduct(e){e.preventDefault();const payload={business_id:businessId,name:$('productName').value.trim(),barcode:$('productBarcode').value.trim()||null,unit:$('productUnit').value,cost_price:+$('costPrice').value,selling_price:+$('sellingPrice').value,stock_quantity:+$('openingStock').value};const {error}=await db.from('products').insert(payload);if(error)return showModal('Save product failed',error.message);$('productForm').reset();$('productFormWrap').classList.add('hidden');$toast('Product saved');await loadProducts();}
+  const modules={
+    categories:{table:'product_categories',fields:[['name','Category name','text',true],['description','Description','text',false]] ,cols:['name','description','created_at']},
+    suppliers:{table:'suppliers',fields:[['name','Supplier name','text',true],['phone','Phone','text'],['email','Email','email']],cols:['name','phone','email']},
+    customers:{table:'customers',fields:[['name','Customer name','text',true],['phone','Phone','text'],['email','Email','email']],cols:['name','phone','email']},
+    expenses:{table:'expenses',fields:[['title','Expense title','text',true],['amount','Amount','number',true],['expense_date','Date','date',true]],cols:['title','amount','expense_date']},
+    purchases:{table:'purchases',fields:[['reference_number','Reference number','text'],['total','Total amount','number',true]],cols:['reference_number','total','created_at']},
+    returns:{table:'sales_returns',fields:[['product_id','Product','product',true],['quantity','Quantity','number',true],['refund_amount','Refund amount','number',true],['reason','Reason','text',true]],cols:['product_id','quantity','refund_amount','reason','created_at']},
+    'stock-transfer':{table:'stock_transfers',fields:[['product_id','Product','product',true],['quantity','Quantity','number',true],['from_location','From location','text',true],['to_location','To location','text',true],['note','Note','text']],cols:['product_id','quantity','from_location','to_location','created_at']},
+    expiry:{table:'product_batches',fields:[['product_id','Product','product',true],['batch_number','Batch number','text'],['quantity','Quantity','number',true],['expiry_date','Expiry date','date',true]],cols:['product_id','batch_number','quantity','expiry_date']},
+    budget:{table:'budgets',fields:[['title','Budget title','text',true],['amount','Amount','number',true],['period_start','Start date','date',true],['period_end','End date','date',true],['note','Note','text']],cols:['title','amount','period_start','period_end']},
+    employees:{table:'employees',fields:[['full_name','Full name','text',true],['phone','Phone','text'],['email','Email','email'],['job_title','Job title','text'],['role','Role','select:employee,cashier,manager',true],['salary','Salary','number'],['status','Status','select:active,inactive',true]],cols:['full_name','phone','job_title','role','salary','status']},
+    cashiers:{table:'employees',fields:[['full_name','Cashier name','text',true],['phone','Phone','text'],['email','Email','email'],['job_title','Job title','text'],['role','Role','select:cashier',true],['status','Status','select:active,inactive',true]],cols:['full_name','phone','email','status']},
+    managers:{table:'employees',fields:[['full_name','Manager name','text',true],['phone','Phone','text'],['email','Email','email'],['job_title','Job title','text'],['role','Role','select:manager',true],['status','Status','select:active,inactive',true]],cols:['full_name','phone','email','status']},
+    'inventory-audit':{table:'inventory_audits',fields:[['audit_date','Audit date','date',true],['notes','Notes','text']],cols:['audit_date','status','notes','created_at']},
+    'cash-register':{table:'cash_register_sessions',fields:[['opening_cash','Opening cash','number',true],['note','Note','text']],cols:['opening_cash','closing_cash','status','opened_at']}
   };
-
-  const pageNames = {
-    dashboard: "Dashboard",
-    products: "Products & Stock",
-    sales: "Sales",
-    purchases: "Purchases",
-    customers: "Customers",
-    suppliers: "Suppliers",
-    expenses: "Expenses",
-    reports: "Reports",
-    settings: "Settings"
-  };
-
-  function toast(msg) {
-    const t = $("toast");
-    t.textContent = msg;
-    t.classList.add("show");
-    setTimeout(() => t.classList.remove("show"), 3200);
+  async function productOptions(){const {data}=await db.from('products').select('id,name').eq('business_id',businessId).order('name');return data||[]}
+  function fieldHTML(f,products){const [key,label,type,required]=f;let el='';if(type==='product')el=`<select name="${key}" ${required?'required':''}><option value="">Choose product</option>${products.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>`;else if(type.startsWith('select:'))el=`<select name="${key}">${type.split(':')[1].split(',').map(v=>`<option value="${v}">${v}</option>`).join('')}</select>`;else el=`<input name="${key}" type="${type}" ${required?'required':''} ${type==='number'?'min="0" step="0.001"':''}>`;return `<label>${label}${el}</label>`}
+  async function renderGeneric(page){const m=modules[page];const mount=$('moduleMount');mount.innerHTML='<div class="panel">Loading…</div>';let products=[];if(m.fields.some(f=>f[2]==='product'))products=await productOptions();let query=db.from(m.table).select('*').eq('business_id',businessId);if(page==='cashiers')query=query.eq('role','cashier');if(page==='managers')query=query.eq('role','manager');const {data,error}=await query.order(m.table==='cash_register_sessions'?'opened_at':'created_at',{ascending:false}).limit(200);if(error){mount.innerHTML=`<div class="panel"><h3>Cannot load ${titles[page]}</h3><p>${esc(error.message)}</p></div>`;return;}const rows=data||[];const productNames=Object.fromEntries(products.map(p=>[p.id,p.name]));mount.innerHTML=`<div class="section-toolbar"><div><h2>${titles[page]}</h2><p class="muted">Manage ${titles[page].toLowerCase()} records for ${esc(businessName)}.</p></div><button class="btn btn-primary" id="addModuleRecord">＋ Add new</button></div><div class="panel form-panel hidden" id="moduleFormPanel"><form id="moduleForm" class="module-form">${m.fields.map(f=>fieldHTML(f,products)).join('')}<div class="form-actions"><button class="btn btn-primary">Save record</button><button type="button" class="btn btn-light" id="cancelModule">Cancel</button></div></form></div><div class="panel table-panel"><div class="table-tools"><input id="moduleSearch" placeholder="Search records…"><span>${rows.length} records</span></div><div class="table-wrap"><table><thead><tr>${m.cols.map(c=>`<th>${c.replaceAll('_',' ')}</th>`).join('')}<th>Actions</th></tr></thead><tbody id="moduleRows">${rows.map(r=>genericRow(r,m,productNames)).join('')||`<tr><td colspan="${m.cols.length+1}" class="empty-state">No records yet.</td></tr>`}</tbody></table></div></div>`;
+    $('addModuleRecord').onclick=()=> $('moduleFormPanel').classList.remove('hidden');$('cancelModule').onclick=()=> $('moduleFormPanel').classList.add('hidden');$('moduleSearch').oninput=e=>[...$('moduleRows').rows].forEach(tr=>tr.hidden=!tr.textContent.toLowerCase().includes(e.target.value.toLowerCase()));
+    $('moduleForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target),payload={business_id:businessId};for(const [k,v] of fd.entries())payload[k]=v===''?null:(['amount','quantity','refund_amount','opening_cash','salary'].includes(k)?Number(v):v);if(page==='expenses')payload.currency=currency;if(page==='purchases')payload.currency=currency;if(page==='cash-register'){payload.opened_by=user.id;payload.status='open'}if(page==='employees'&&payload.salary===null)payload.salary=0;const {error}=await db.from(m.table).insert(payload);if(error)return showModal('Save failed',error.message);$toast('Saved successfully');await renderGeneric(page);};
+    mount.querySelectorAll('[data-delete]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this record?'))return;const {error}=await db.from(m.table).delete().eq('id',b.dataset.delete).eq('business_id',businessId);if(error)return showModal('Delete failed',error.message);await renderGeneric(page)});mount.querySelectorAll('[data-close-session]').forEach(b=>b.onclick=async()=>{const closing=prompt('Enter counted closing cash amount');if(closing===null)return;const {error}=await db.from('cash_register_sessions').update({closing_cash:Number(closing),expected_cash:Number(closing),status:'closed',closed_at:new Date().toISOString()}).eq('id',b.dataset.closeSession).eq('business_id',businessId);if(error)return showModal('Close register failed',error.message);await renderGeneric(page)});
   }
-
-  function modal(title, msg) {
-    $("modalTitle").textContent = title;
-    $("modalMessage").textContent = msg;
-    $("modalBackdrop").classList.remove("hidden");
-  }
-
-  function showAuth() {
-    $("authScreen").classList.remove("hidden");
-    $("appScreen").classList.add("hidden");
-  }
-
-  function showApp() {
-    $("authScreen").classList.add("hidden");
-    $("appScreen").classList.remove("hidden");
-    $("userAvatar").textContent =
-      (sessionUser?.email || "W").charAt(0).toUpperCase();
-  }
-
-  function setAuthMode(mode) {
-    authMode = mode;
-    const signup = mode === "signup";
-
-    $("authTitle").textContent = signup
-      ? "Create your WIZO POS account"
-      : "Welcome back";
-
-    $("authSubtitle").textContent = signup
-      ? "Register with your name, phone, email and password."
-      : "Sign in to continue to WIZO POS.";
-
-    $("authSubmit").textContent =
-      signup ? "Create account" : "Sign in";
-
-    $("authSwitchText").textContent =
-      signup ? "Already have an account?" : "New to WIZO POS?";
-
-    $("authSwitch").textContent = signup ? "Sign in" : "Create account";
-
-    ["authNameWrap", "authPhoneWrap", "authConfirmWrap"].forEach(id => {
-      if ($(id)) $(id).hidden = !signup;
-    });
-
-    ["authName", "authPhone", "authConfirmPassword"].forEach(id => {
-      if ($(id)) $(id).required = signup;
-    });
-
-    $("authPassword").autocomplete =
-      signup ? "new-password" : "current-password";
-  }
-
-  async function handleAuth(e) {
-    e.preventDefault();
-
-    if (!db) {
-      modal(
-        "Supabase is not configured",
-        "Check config.js and make sure Supabase can load."
-      );
-      return;
-    }
-
-    const email = $("authEmail").value.trim();
-    const password = $("authPassword").value;
-    const fullName = $("authName")?.value.trim() || "";
-    const phone = $("authPhone")?.value.trim() || "";
-    const confirmPassword = $("authConfirmPassword")?.value || "";
-
-    if (authMode === "signup") {
-      if (!fullName || !phone) {
-        modal("Missing information", "Please enter your full name and phone number.");
-        return;
-      }
-
-      if (password !== confirmPassword) {
-        modal("Password mismatch", "Password and Re-password must match.");
-        $("authConfirmPassword").focus();
-        return;
-      }
-
-      if (password.length < 6) {
-        modal("Password too short", "Password must contain at least 6 characters.");
-        return;
-      }
-    }
-
-    $("authSubmit").disabled = true;
-
-    try {
-      const result = authMode === "signin"
-        ? await db.auth.signInWithPassword({ email, password })
-        : await db.auth.signUp({
-            email,
-            password,
-            options: {
-              data: {
-                full_name: fullName,
-                phone: phone
-              }
-            }
-          });
-
-      if (result.error) throw result.error;
-
-      if (authMode === "signup" && !result.data.session) {
-        toast("Account created. Check your email to confirm, then sign in.");
-        setAuthMode("signin");
-      } else if (result.data.user) {
-        sessionUser = result.data.user;
-        await loadWorkspace();
-      }
-    } catch (err) {
-      modal("Authentication error", err.message || "Unable to authenticate.");
-    } finally {
-      $("authSubmit").disabled = false;
-    }
-  }
-
-  async function loadWorkspace() {
-    showApp();
-
-    const { data: members, error } = await db
-      .from("business_members")
-      .select("business_id,role,businesses(id,name,default_currency)")
-      .eq("user_id", sessionUser.id)
-      .limit(1);
-
-    if (error) {
-      modal("Workspace loading error", error.message);
-      return;
-    }
-
-    if (!members?.length) {
-      $("businessSetup").classList.remove("hidden");
-      $("dashboardPage").classList.remove("hidden");
-      $("welcomeTitle").textContent = "Create your first business";
-      return;
-    }
-
-    const row = members[0];
-    businessId = row.business_id;
-    businessName = row.businesses?.name || "My supermarket";
-    currency = row.businesses?.default_currency || "SAR";
-
-    $("businessSetup").classList.add("hidden");
-    $("sideBusinessName").textContent = businessName;
-    $("welcomeTitle").textContent = `Welcome to ${businessName}`;
-    $("currencySelect").value = currency;
-    $("settingsCurrency").value = currency;
-
-    await loadProducts();
-  }
-
-  async function createBusiness(e) {
-    e.preventDefault();
-    if (!db || !sessionUser) return;
-
-    const name = $("businessName").value.trim();
-    const owner = $("ownerName").value.trim();
-    const cur = $("businessCurrency").value;
-
-    if (!name || !owner) return;
-
-    const { data, error } = await db.rpc("create_business", {
-      p_name: name,
-      p_owner_name: owner,
-      p_currency: cur
-    });
-
-    if (error) {
-      modal("Business setup failed", error.message);
-      return;
-    }
-
-    businessId = data;
-    businessName = name;
-    currency = cur;
-
-    $("businessSetup").classList.add("hidden");
-    $("sideBusinessName").textContent = name;
-    $("welcomeTitle").textContent = `Welcome to ${name}`;
-    $("currencySelect").value = cur;
-    $("settingsCurrency").value = cur;
-
-    toast("Business workspace created");
-    await loadProducts();
-  }
-
-  function formatMoney(value) {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 2
-    }).format(Number(value || 0));
-  }
-
-  async function loadProducts() {
-    if (!db || !businessId) return;
-
-    const { data, error } = await db
-      .from("products")
-      .select("id,name,barcode,unit,cost_price,selling_price,stock_quantity")
-      .eq("business_id", businessId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.warn(error);
-      return;
-    }
-
-    const rows = data || [];
-    $("metricProducts").textContent = rows.length;
-    $("productCount").textContent = `${rows.length} products`;
-
-    const tbody = $("productsTable");
-    tbody.innerHTML = "";
-
-    if (!rows.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="6" class="empty-state">No products yet. Add your first product.</td></tr>';
-      $("recentProducts").textContent = "No products added yet.";
-      return;
-    }
-
-    for (const p of rows) {
-      const tr = document.createElement("tr");
-      [
-        p.name,
-        p.barcode || "—",
-        p.unit,
-        formatMoney(p.cost_price),
-        formatMoney(p.selling_price),
-        p.stock_quantity
-      ].forEach(v => {
-        const td = document.createElement("td");
-        td.textContent = v;
-        tr.appendChild(td);
-      });
-      tbody.appendChild(tr);
-    }
-
-    $("recentProducts").innerHTML = "";
-    rows.slice(0, 5).forEach(p => {
-      const d = document.createElement("div");
-      d.className = "recent-row";
-      d.textContent = `${p.name} · ${p.stock_quantity} ${p.unit}`;
-      $("recentProducts").appendChild(d);
-    });
-
-    if ($("productSearch").value) filterProducts();
-  }
-
-  async function saveProduct(e) {
-    e.preventDefault();
-
-    if (!db || !businessId) {
-      toast("Create a business workspace first");
-      return;
-    }
-
-    const payload = {
-      business_id: businessId,
-      name: $("productName").value.trim(),
-      barcode: $("productBarcode").value.trim() || null,
-      unit: $("productUnit").value,
-      cost_price: Number($("costPrice").value),
-      selling_price: Number($("sellingPrice").value),
-      stock_quantity: Number($("openingStock").value)
-    };
-
-    const { error } = await db.from("products").insert(payload);
-
-    if (error) {
-      modal("Could not save product", error.message);
-      return;
-    }
-
-    $("productForm").reset();
-    $("productFormWrap").classList.add("hidden");
-    toast("Product saved");
-    await loadProducts();
-  }
-
-  function filterProducts() {
-    const q = $("productSearch").value.toLowerCase();
-    [...$("productsTable").rows].forEach(r => {
-      r.style.display = r.textContent.toLowerCase().includes(q) ? "" : "none";
-    });
-  }
-
-  function navigate(page) {
-    document.querySelectorAll(".page").forEach(p => p.classList.add("hidden"));
-
-    const target = page === "settings"
-      ? "settingsPage"
-      : ["dashboard", "products"].includes(page)
-        ? `${page}Page`
-        : "placeholderPage";
-
-    $(target).classList.remove("hidden");
-    $("pageTitle").textContent = pageNames[page] || "WIZO POS";
-
-    if (target === "placeholderPage") {
-      $("placeholderTitle").textContent = pageNames[page] || "Coming next";
-    }
-
-    document.querySelectorAll(".nav-link[data-page]").forEach(b => {
-      b.classList.toggle("active", b.dataset.page === page);
-    });
-
-    $("sidebar").classList.remove("open");
-  }
-
-  function applyLanguage(lang) {
-    const dict = words[lang] || words.en;
-    document.documentElement.lang = lang;
-    document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
-
-    document.querySelectorAll("[data-i18n]").forEach(el => {
-      const k = el.dataset.i18n;
-      if (dict[k]) el.textContent = dict[k];
-    });
-
-    $("languageSelect").value = lang;
-    $("settingsLanguage").value = lang;
-  }
-
-  async function signOut() {
-    if (db) await db.auth.signOut();
-    sessionUser = null;
-    businessId = null;
-    showAuth();
-  }
-
-  function wire() {
-    $("year").textContent = new Date().getFullYear();
-    $("authForm").addEventListener("submit", handleAuth);
-
-    $("authSwitch").addEventListener("click", () => {
-      setAuthMode(authMode === "signin" ? "signup" : "signin");
-    });
-
-    $("businessForm").addEventListener("submit", createBusiness);
-    $("signOutBtn").addEventListener("click", signOut);
-
-    document.querySelectorAll(".nav-link[data-page]").forEach(b => {
-      b.addEventListener("click", () => navigate(b.dataset.page));
-    });
-
-    document.querySelectorAll("[data-goto]").forEach(b => {
-      b.addEventListener("click", () => navigate(b.dataset.goto));
-    });
-
-    $("addProductBtn").addEventListener("click", () => {
-      $("productFormWrap").classList.remove("hidden");
-    });
-
-    $("closeProductForm").addEventListener("click", () => {
-      $("productFormWrap").classList.add("hidden");
-    });
-
-    $("productForm").addEventListener("submit", saveProduct);
-    $("productSearch").addEventListener("input", filterProducts);
-    $("refreshBtn").addEventListener("click", loadProducts);
-
-    $("languageSelect").addEventListener("change", e => applyLanguage(e.target.value));
-    $("authLanguage").addEventListener("change", e => applyLanguage(e.target.value));
-    $("settingsLanguage").addEventListener("change", e => applyLanguage(e.target.value));
-
-    $("currencySelect").addEventListener("change", e => {
-      currency = e.target.value;
-      $("settingsCurrency").value = currency;
-      loadProducts();
-    });
-
-    $("settingsCurrency").addEventListener("change", e => {
-      currency = e.target.value;
-      $("currencySelect").value = currency;
-      loadProducts();
-    });
-
-    $("menuToggle").addEventListener("click", () => {
-      $("sidebar").classList.toggle("open");
-    });
-
-    $("modalClose").addEventListener("click", () => {
-      $("modalBackdrop").classList.add("hidden");
-    });
-  }
-
-  async function init() {
-    wire();
-
-    if (!clientReady) {
-      $("connectionText").textContent = "Configuration missing";
-      return;
-    }
-
-    $("connectionText").textContent = "Cloud configured";
-
-    const { data: { session } } = await db.auth.getSession();
-
-    if (session) {
-      sessionUser = session.user;
-      await loadWorkspace();
-    } else {
-      showAuth();
-    }
-
-    db.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        sessionUser = session.user;
-        loadWorkspace();
-      } else if (!session) {
-        showAuth();
-      }
-    });
-  }
-
-  document.addEventListener("DOMContentLoaded", init);
+  function genericRow(r,m,productNames){const closeAction=m.table==='cash_register_sessions'&&r.status==='open'?`<button class="text-button" data-close-session="${r.id}">Close session</button> `:'';return `<tr>${m.cols.map(c=>`<td>${esc(c==='product_id'?(productNames[r[c]]||r[c]):(r[c]??'—'))}</td>`).join('')}<td>${closeAction}<button class="text-button" data-delete="${r.id}">Delete</button></td></tr>`}
+  async function renderBarcode(){const {data,error}=await db.from('products').select('id,name,barcode,unit').eq('business_id',businessId).order('name');$('moduleMount').innerHTML=`<div class="section-toolbar"><div><h2>Barcode Management</h2><p class="muted">Assign or update product barcodes.</p></div></div><div class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>Product</th><th>Barcode</th><th>Unit</th><th>Update</th></tr></thead><tbody>${(data||[]).map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.barcode||'—')}</td><td>${esc(p.unit)}</td><td><button class="text-button" data-barcode="${p.id}">Edit barcode</button></td></tr>`).join('')}</tbody></table></div></div>`;if(error)return showModal('Barcode error',error.message);$('moduleMount').querySelectorAll('[data-barcode]').forEach(b=>b.onclick=async()=>{const value=prompt('Enter barcode');if(value===null)return;const {error}=await db.from('products').update({barcode:value.trim()||null}).eq('id',b.dataset.barcode).eq('business_id',businessId);if(error)return showModal('Barcode update failed',error.message);renderBarcode()})}
+  async function renderLowStock(){const {data,error}=await db.from('products').select('name,barcode,stock_quantity,low_stock_threshold,unit').eq('business_id',businessId).order('stock_quantity');$('moduleMount').innerHTML=`<div class="section-toolbar"><div><h2>Low Stock Alerts</h2><p class="muted">Products at or below their reorder threshold.</p></div></div><div class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>Product</th><th>Stock</th><th>Alert threshold</th><th>Unit</th></tr></thead><tbody>${(data||[]).filter(p=>Number(p.stock_quantity)<=Number(p.low_stock_threshold)).map(p=>`<tr><td>${esc(p.name)}</td><td>${p.stock_quantity}</td><td>${p.low_stock_threshold}</td><td>${esc(p.unit)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty-state">No low-stock products.</td></tr>'}</tbody></table></div></div>`;if(error)showModal('Low stock error',error.message)}
+  async function renderAdjust(){const products=await productOptions();$('moduleMount').innerHTML=`<div class="section-toolbar"><div><h2>Stock Adjustment</h2><p class="muted">Increase, decrease or set stock. Every adjustment is recorded.</p></div></div><div class="panel"><form id="adjustForm" class="module-form"><label>Product<select name="product_id" required>${products.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></label><label>Action<select name="type"><option value="increase">Increase</option><option value="decrease">Decrease</option><option value="set">Set exact quantity</option></select></label><label>Quantity<input name="quantity" type="number" min="0" step="0.001" required></label><label>Reason<input name="reason" required></label><button class="btn btn-primary">Apply adjustment</button></form></div>`;$('adjustForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);const {error}=await db.rpc('wizo_stock_adjust',{p_business_id:businessId,p_product_id:f.get('product_id'),p_type:f.get('type'),p_quantity:Number(f.get('quantity')),p_reason:f.get('reason')});if(error)return showModal('Adjustment failed',error.message);$toast('Stock adjusted');}}
+  async function renderPOS(){const {data:products}=await db.from('products').select('id,name,barcode,selling_price,stock_quantity,unit').eq('business_id',businessId).gt('stock_quantity',0).order('name');cart=[];const ps=products||[];$('moduleMount').innerHTML=`<div class="section-toolbar"><div><h2>Point of Sale</h2><p class="muted">Scan/search items, add quantities and complete checkout.</p></div></div><div class="pos-layout"><div class="panel"><label>Search / scan barcode<input id="posSearch" placeholder="Product name or barcode"></label><div id="posProducts" class="pos-products">${ps.map(p=>`<button class="pos-product" data-product="${p.id}"><b>${esc(p.name)}</b><small>${money(p.selling_price)} · Stock ${p.stock_quantity}</small></button>`).join('')}</div></div><div class="panel"><h3>Current sale</h3><div id="cartRows" class="cart-rows">Cart is empty.</div><label>Discount<input id="posDiscount" type="number" min="0" value="0"></label><div class="pos-total" id="posTotal">Total: ${money(0)}</div><button id="checkoutBtn" class="btn btn-primary full">Complete sale</button></div></div>`;
+    function drawCart(){ $('cartRows').innerHTML=cart.map((x,i)=>`<div class="cart-row">${esc(x.name)} × ${x.quantity}<b>${money(x.price*x.quantity)}</b><button data-remove="${i}">×</button></div>`).join('')||'Cart is empty.';const sub=cart.reduce((a,x)=>a+x.price*x.quantity,0),disc=Number($('posDiscount').value||0);$('posTotal').textContent=`Total: ${money(Math.max(0,sub-disc))}`;$('cartRows').querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{cart.splice(+b.dataset.remove,1);drawCart()})}
+    function add(id){const p=ps.find(x=>x.id===id);if(!p)return;const old=cart.find(x=>x.id===id);if(old){if(old.quantity>=p.stock_quantity)return showModal('Stock limit',`Only ${p.stock_quantity} ${p.unit} available.`);old.quantity++}else cart.push({id:p.id,name:p.name,price:Number(p.selling_price),quantity:1,max:p.stock_quantity});drawCart()}
+    $('posProducts').querySelectorAll('[data-product]').forEach(b=>b.onclick=()=>add(b.dataset.product));$('posSearch').oninput=e=>{const q=e.target.value.toLowerCase();$('posProducts').querySelectorAll('[data-product]').forEach(b=>{const p=ps.find(x=>x.id===b.dataset.product);b.hidden=!(p.name.toLowerCase().includes(q)||(p.barcode||'').toLowerCase().includes(q))})};$('posDiscount').oninput=drawCart;
+    $('checkoutBtn').onclick=async()=>{if(!cart.length)return showModal('Empty cart','Add products before checkout.');const discount=Number($('posDiscount').value||0);const {data,error}=await db.rpc('wizo_checkout',{p_business_id:businessId,p_items:cart.map(x=>({product_id:x.id,quantity:x.quantity})),p_discount:discount,p_payment_method:'cash'});if(error)return showModal('Checkout failed',error.message);cart=[];$toast('Sale completed');showModal('Sale completed',`Invoice ID: ${data}`);await loadDashboard();renderPOS()};}
+  async function renderCashierManager(page){await renderGeneric(page==='cashiers'?'employees':'employees');}
+  async function renderSalesHistory(){const {data,error}=await db.from('sales').select('id,invoice_number,total,currency,status,created_at').eq('business_id',businessId).order('created_at',{ascending:false}).limit(250);$('moduleMount').innerHTML=`<div class="section-toolbar"><div><h2>Sales History</h2><p class="muted">Completed and held invoices.</p></div></div><div class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Total</th><th>Status</th><th>Date</th></tr></thead><tbody>${(data||[]).map(x=>`<tr><td>${esc(x.invoice_number)}</td><td>${money(x.total)}</td><td>${esc(x.status)}</td><td>${new Date(x.created_at).toLocaleString()}</td></tr>`).join('')||'<tr><td colspan="4" class="empty-state">No sales recorded yet.</td></tr>'}</tbody></table></div></div>`;if(error)showModal('Sales history error',error.message)}
+  async function renderPurchase(){const products=await productOptions();const {data:suppliers}=await db.from('suppliers').select('id,name').eq('business_id',businessId).order('name');$('moduleMount').innerHTML=`<div class="section-toolbar"><div><h2>Purchases</h2><p class="muted">Record supplier purchases and automatically increase stock.</p></div></div><div class="panel"><form id="purchaseForm" class="module-form"><label>Product<select name="product_id" required>${products.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></label><label>Quantity<input name="quantity" type="number" min="0.001" step="0.001" required></label><label>Unit cost<input name="unit_cost" type="number" min="0" step="0.01" required></label><label>Supplier<select name="supplier_id"><option value="">Not specified</option>${(suppliers||[]).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></label><label>Reference<input name="reference"></label><button class="btn btn-primary">Save purchase & update stock</button></form></div>`;$('purchaseForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);const {data,error}=await db.rpc('wizo_create_purchase',{p_business_id:businessId,p_items:[{product_id:f.get('product_id'),quantity:Number(f.get('quantity')),unit_cost:Number(f.get('unit_cost'))}],p_supplier_id:f.get('supplier_id')||null,p_reference:f.get('reference')||null});if(error)return showModal('Purchase failed',error.message);$toast('Purchase saved; stock increased');await loadDashboard();renderPurchase()};}
+  async function renderReturn(){const products=await productOptions();$('moduleMount').innerHTML=`<div class="section-toolbar"><div><h2>Returns & Refunds</h2><p class="muted">Record returned items. Accepted returns are added back to stock.</p></div></div><div class="panel"><form id="returnForm" class="module-form"><label>Product<select name="product_id" required>${products.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></label><label>Quantity<input name="quantity" type="number" min="0.001" step="0.001" required></label><label>Refund amount<input name="refund" type="number" min="0" step="0.01" required></label><label>Reason<input name="reason" required></label><button class="btn btn-primary">Save return & restore stock</button></form></div>`;$('returnForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);const {error}=await db.rpc('wizo_process_return',{p_business_id:businessId,p_product_id:f.get('product_id'),p_quantity:Number(f.get('quantity')),p_refund:Number(f.get('refund')),p_reason:f.get('reason'),p_sale_id:null});if(error)return showModal('Return failed',error.message);$toast('Return saved; stock restored');await loadDashboard();renderReturn()};}
+  async function renderTax(){const {data}=await db.from('business_tax_settings').select('*').eq('business_id',businessId).maybeSingle();$('moduleMount').innerHTML=`<div class="section-toolbar"><div><h2>Tax / VAT</h2><p class="muted">Set your business VAT rate.</p></div></div><div class="panel"><form id="taxForm" class="module-form"><label>Tax name<input name="tax_name" value="${esc(data?.tax_name||'VAT')}"></label><label>Tax rate (%)<input name="tax_rate" type="number" min="0" max="100" step="0.001" value="${data?.tax_rate||0}"></label><label>Tax inclusive<select name="tax_inclusive"><option value="false" ${data?.tax_inclusive?'':'selected'}>No</option><option value="true" ${data?.tax_inclusive?'selected':''}>Yes</option></select></label><button class="btn btn-primary">Save tax settings</button></form></div>`;$('taxForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),payload={business_id:businessId,tax_name:f.get('tax_name'),tax_rate:Number(f.get('tax_rate')),tax_inclusive:f.get('tax_inclusive')==='true',updated_at:new Date().toISOString()};const {error}=await db.from('business_tax_settings').upsert(payload);if(error)return showModal('Tax save failed',error.message);$toast('Tax settings saved')}}
+  async function renderReports(){const [s,p,e,pr]=await Promise.all([db.from('sales').select('total,created_at').eq('business_id',businessId),db.from('purchases').select('total').eq('business_id',businessId),db.from('expenses').select('amount').eq('business_id',businessId),db.from('products').select('stock_quantity,cost_price').eq('business_id',businessId)]);const sales=(s.data||[]).reduce((a,x)=>a+Number(x.total),0),purchases=(p.data||[]).reduce((a,x)=>a+Number(x.total),0),expenses=(e.data||[]).reduce((a,x)=>a+Number(x.amount),0),stock=(pr.data||[]).reduce((a,x)=>a+Number(x.stock_quantity)*Number(x.cost_price),0);$('moduleMount').innerHTML=`<h2>Reports</h2><div class="metric-grid report-metrics"><article class="metric-card"><div class="metric-label">TOTAL SALES</div><div class="metric-value">${money(sales)}</div></article><article class="metric-card"><div class="metric-label">PURCHASES</div><div class="metric-value">${money(purchases)}</div></article><article class="metric-card"><div class="metric-label">EXPENSES</div><div class="metric-value">${money(expenses)}</div></article><article class="metric-card"><div class="metric-label">STOCK COST VALUE</div><div class="metric-value">${money(stock)}</div></article></div><div class="panel"><h3>Estimated net result</h3><div class="metric-value">${money(sales-purchases-expenses)}</div><p class="muted">Simple cash-based estimate; not an audited profit and loss statement.</p></div>`}
+  async function renderSuperAdmin(){if(!isSuperAdmin)return showModal('Access denied','Super Admin role is required.');const {data:settings}=await db.from('wizo_platform_settings').select('default_trial_days').eq('singleton',true).maybeSingle();const {data,error}=await db.rpc('wizo_admin_list_businesses');if(error){$('moduleMount').innerHTML=`<div class="panel"><h2>Super Admin</h2><p>${esc(error.message)}</p></div>`;return;}const rows=data||[];$('moduleMount').innerHTML=`<div class="section-toolbar"><div><h2>Super Admin</h2><p class="muted">Manage all WIZO POS businesses and subscriptions.</p></div></div><div class="panel"><form id="trialDaysForm" class="inline-form"><label>Default free trial days<input name="days" type="number" min="0" max="365" value="${settings?.default_trial_days??15}"></label><button class="btn btn-primary">Save trial duration</button></form></div><div class="panel table-panel" style="margin-top:16px"><div class="table-wrap"><table><thead><tr><th>Business</th><th>Owner</th><th>Status</th><th>Plan</th><th>Trial ends</th><th>Action</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.business_name)}</td><td>${esc(r.owner_name)}</td><td>${esc(r.subscription_status||'none')}</td><td>${esc(r.plan_name||'—')}</td><td>${r.trial_ends_at?new Date(r.trial_ends_at).toLocaleDateString():'—'}</td><td><button class="text-button" data-admin="${r.business_id}">Manage</button></td></tr>`).join('')||'<tr><td colspan="6">No businesses found.</td></tr>'}</tbody></table></div></div>`;
+    $('trialDaysForm').onsubmit=async e=>{e.preventDefault();const days=Number(new FormData(e.target).get('days'));const {error}=await db.rpc('wizo_admin_set_trial_days',{p_days:days});if(error)return showModal('Update failed',error.message);$toast('Default trial duration updated')};$('moduleMount').querySelectorAll('[data-admin]').forEach(b=>b.onclick=async()=>{const status=prompt('Enter status: trialing, active, past_due, suspended, cancelled, expired','active');if(!status)return;const end=prompt('Subscription end date (YYYY-MM-DD) or leave blank','');const {error}=await db.rpc('wizo_admin_set_subscription',{p_business_id:b.dataset.admin,p_status:status,p_period_end:end?new Date(end+'T23:59:59Z').toISOString():null});if(error)return showModal('Subscription update failed',error.message);renderSuperAdmin()});}
+  async function navigate(page){if(page==='super-admin'&&!isSuperAdmin)return showModal('Access denied','Super Admin only.');document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));const staticPage=['dashboard','products','settings'].includes(page);const id=page==='dashboard'?'dashboardPage':page==='products'?'productsPage':page==='settings'?'settingsPage':'modulePage';$(id).classList.remove('hidden');$('pageTitle').textContent=titles[page]||page;$('sidebar').classList.remove('open');if(page==='dashboard')await loadDashboard();else if(page==='products')await loadProducts();else if(page==='pos')await renderPOS();else if(page==='barcode')await renderBarcode();else if(page==='low-stock')await renderLowStock();else if(page==='stock-adjustment')await renderAdjust();else if(page==='tax')await renderTax();else if(page==='purchases')await renderPurchase();else if(page==='returns')await renderReturn();else if(page==='sales-history'||page==='sales')await renderSalesHistory();else if(page==='reports')await renderReports();else if(page==='super-admin')await renderSuperAdmin();else if(page==='cashiers'||page==='managers')await renderGeneric(page);else if(modules[page])await renderGeneric(page);else $('moduleMount').innerHTML='<div class="panel">This page is not configured.</div>';}
+  function wire(){ $('year').textContent=new Date().getFullYear();$('authForm').addEventListener('submit',handleAuth);$('authSwitch').onclick=()=>authMode(!$('authNameWrap').hidden===false);$('businessForm').addEventListener('submit',createBusiness);$('signOutBtn').onclick=async()=>{await db.auth.signOut();user=null;businessId=null;showAuth()};document.querySelectorAll('.nav-link[data-page]').forEach(b=>b.onclick=()=>navigate(b.dataset.page));document.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>navigate(b.dataset.goto));$('addProductBtn').onclick=()=>$('productFormWrap').classList.remove('hidden');$('closeProductForm').onclick=()=>$('productFormWrap').classList.add('hidden');$('productForm').addEventListener('submit',saveProduct);$('productSearch').oninput=e=>[...$('productsTable').rows].forEach(r=>r.hidden=!r.textContent.toLowerCase().includes(e.target.value.toLowerCase()));$('refreshBtn').onclick=loadDashboard;$('menuToggle').onclick=()=>$('sidebar').classList.toggle('open');$('modalClose').onclick=()=>$('modalBackdrop').classList.add('hidden');$('currencySelect').onchange=e=>{currency=e.target.value;loadDashboard()};$('settingsCurrency').onchange=e=>{currency=e.target.value;$('currencySelect').value=currency;loadDashboard()};$('languageSelect').onchange=e=>{document.documentElement.dir=e.target.value==='ar'?'rtl':'ltr'};$('settingsLanguage').onchange=e=>{document.documentElement.dir=e.target.value==='ar'?'rtl':'ltr'};}
+  async function init(){wire();if(!ready){$('connectionText').textContent='Configuration missing';return;}const {data:{session}}=await db.auth.getSession();if(session){user=session.user;await loadWorkspace()}else showAuth();db.auth.onAuthStateChange((event,session)=>{if(session?.user){user=session.user;loadWorkspace()}else if(event==='SIGNED_OUT')showAuth()});}
+  document.addEventListener('DOMContentLoaded',init);
 })();
