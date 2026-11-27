@@ -298,7 +298,8 @@ window.WIZO_CONFIG = {
     $('setupProgressLabel').textContent=`${done}/${steps.length} complete`;
     $('setupProgressBar').style.width=`${percent}%`;
     $('setupProgressPercent').textContent=`${percent}% complete`;
-    $('gettingStartedPanel').classList.toggle('hidden',done===steps.length);
+    const gettingStartedPanel=$('gettingStartedPanel');
+    if(gettingStartedPanel)gettingStartedPanel.classList.toggle('hidden',done===steps.length);
     const hardware=$('hardwareSetupDone');if(hardware){hardware.checked=hardwareDone;hardware.onchange=()=>{localStorage.setItem(hardwareKey,String(hardware.checked));updateSetupProgress(productCount);};}
   }
   async function loadDashboard(){
