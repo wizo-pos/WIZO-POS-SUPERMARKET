@@ -190,8 +190,8 @@
           <div class="panel settings-panel data-tools-panel"><h2>Data & Backup</h2><p class="muted">Save a backup of this business, restore a previous WIZO POS backup, or permanently clear its records.</p>
             <div class="settings-row"><div><b>Backup data</b><div class="muted">Download products, stock, sales, purchases and other business records.</div></div><button id="backupDataBtn" class="btn btn-primary" type="button">⬇ Download Backup</button></div>
             <div class="settings-row"><div><b>Upload data</b><div class="muted">Restore a JSON backup previously downloaded from WIZO POS.</div></div><div><input id="restoreDataFile" type="file" accept=".json,application/json"><button id="restoreDataBtn" class="btn btn-light" type="button">Upload / Restore</button></div></div>
-            <div class="settings-row danger-setting"><div><b>Delete data</b><div class="muted">Permanently delete this business's records. This cannot be undone. Download a backup first.</div></div><button id="deleteBusinessDataBtn" class="btn btn-danger" type="button">Delete All Data</button></div>
-            <p id="dataToolsStatus" class="security-note" role="status">Only the Owner can use backup, restore and delete.</p>
+            <div class="settings-row danger-setting"><div><b>Delete data</b><div class="muted">Permanently delete business records for Owner, Manager and Cashier activity. Login accounts and business access will remain. This cannot be undone. Download a backup first.</div></div><button id="deleteBusinessDataBtn" class="btn btn-danger" type="button">Delete All Data</button></div>
+            <p id="dataToolsStatus" class="security-note" role="status">Only the Owner can use backup, restore and delete. Delete All Data clears business records for all roles but keeps login accounts and business access.</p>
           </div></section>
       </div>
     </section>
@@ -305,6 +305,8 @@ window.WIZO_CONFIG = {
   async function loadDashboard(){
     if(!businessId)return;
     const role=memberRole,privileged=role==='owner';
+    // Financial dashboard cards are visible to the Owner only.
+    document.querySelectorAll('.metric-purchase,.metric-profit').forEach(card=>card.classList.toggle('hidden',!privileged));
     const start=new Date();start.setHours(0,0,0,0);const iso=start.toISOString();
     const [s,pr]=await Promise.all([
       db.from('sales').select('id,total,subtotal,discount,created_at,status').eq('business_id',businessId).gte('created_at',iso).eq('status','completed'),
@@ -330,12 +332,6 @@ window.WIZO_CONFIG = {
       $('metricProfit').textContent=money(revenue-refunds-Math.max(0,cogs-returnedCost)-expenses);
     }else{
       $('metricPurchases').textContent='—';$('metricProfit').textContent='—';
-      const labels=document.querySelectorAll('.metric-card .metric-label');
-      if(labels[1])labels[1].textContent='PURCHASES / COST';
-      if(labels[2])labels[2].textContent='PROFIT';
-      const feet=document.querySelectorAll('.metric-card .metric-foot');
-      if(feet[1])feet[1].textContent='Owner only';
-      if(feet[2])feet[2].textContent='Owner only';
     }
     await loadProducts();await updateSetupProgress((pr.data||[]).length);
   }
@@ -706,9 +702,9 @@ window.WIZO_CONFIG = {
   }
   async function deleteBusinessData(){
     if(memberRole!=='owner')return showModal('Access denied','Only the Owner can delete business data.');
-    const typed=prompt('This permanently deletes all records for '+businessName+'. Type DELETE to continue.');
+    const typed=prompt('This permanently deletes all business records for '+businessName+', including Owner, Manager and Cashier activity. Login accounts and business access will NOT be deleted. Type DELETE to continue.');
     if(typed!=='DELETE')return;
-    if(!confirm('Final confirmation: permanently delete this business data? This cannot be undone.'))return;
+    if(!confirm('Final confirmation: delete all business records for this business? Owner, Manager and Cashier login accounts will remain active. This cannot be undone.'))return;
     const status=$('dataToolsStatus');status.textContent='Deleting business records…';
     // Delete dependent rows by this business's product IDs first. Some legacy
     // purchase_items rows may not be reached through the purchases relation.
