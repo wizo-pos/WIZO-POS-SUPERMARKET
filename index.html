@@ -40,6 +40,33 @@
   #productManagementExtras .panel{margin-bottom:14px}
   #productManagementExtras .module-form{margin-top:16px}
   .unit-calc-preview{grid-column:1/-1;padding:13px 15px;border:1px solid #cfe6e4;background:#f1faf8;border-radius:10px;color:#315b60;font-size:12px;line-height:1.8}.unit-calc-preview b{color:#087f78}
+  
+    /* Professional Settings layout; original control IDs and JavaScript handlers remain intact. */
+    .settings-intro{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:20px}
+    .settings-intro h2{font-size:25px;margin:6px 0}
+    .settings-role-chip{padding:8px 12px;border-radius:30px;background:#e5f5f2;color:#087f78;font-size:10px;font-weight:900;letter-spacing:.7px;white-space:nowrap}
+    .settings-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+    .settings-section{max-width:none;width:100%;padding:20px}
+    .settings-section-head{display:flex;align-items:center;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:4px}
+    .settings-section-head h3{font-size:15px}
+    .settings-section-head p{font-size:11px;margin:4px 0 0}
+    .settings-icon{width:39px;height:39px;flex:none;border-radius:11px;background:#eaf6f4;color:#087f78;display:grid;place-items:center;font-size:19px;font-weight:900}
+    .settings-row{min-width:0}
+    .settings-row>div{min-width:0}
+    .settings-row .muted{font-size:11px;margin-top:4px}
+    .settings-file-actions{width:min(100%,300px)}
+    .settings-file-actions input{max-width:100%;font-size:11px}
+    .settings-access-list{display:grid;gap:0}
+    .settings-access-list>div{display:grid;grid-template-columns:110px 1fr;gap:12px;padding:12px 2px;border-bottom:1px solid #edf1f2;font-size:11px;line-height:1.55}
+    .settings-access-list>div:last-child{border-bottom:0}
+    .settings-access-list b{color:#29445d}
+    .settings-access-list span{color:#74858d}
+    .settings-danger-section{grid-column:1/-1;border-color:#f0dada}
+    .danger-icon{background:#fff0ee;color:#b42318}
+    .settings-danger-section .settings-section-head{border-color:#f3e1e1}
+    @media(max-width:850px){.settings-layout{grid-template-columns:1fr}.settings-danger-section{grid-column:auto}}
+    @media(max-width:600px){.settings-intro{align-items:flex-start;flex-direction:column}.settings-section{padding:16px}.settings-access-list>div{grid-template-columns:95px 1fr}.settings-file-actions{width:100%}}
+
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -187,13 +214,39 @@
 
         <section id="modulePage" class="page hidden"><div id="moduleMount"></div></section>
 
-        <section id="settingsPage" class="page hidden"><div class="panel settings-panel"><h2>Business settings</h2><p class="muted">Choose the language and main currency for your workspace.</p><div class="settings-row"><label for="settingsLanguage">Application language</label><select id="settingsLanguage"><option value="en">English</option><option value="om">Afaan Oromoo</option><option value="ar">العربية</option></select></div><div class="settings-row"><label for="settingsCurrency">Main currency</label><select id="settingsCurrency"><option value="SAR">SAR — Saudi Riyal</option><option value="ETB">ETB — Ethiopian Birr</option><option value="USD">USD — US Dollar</option><option value="AED">AED — UAE Dirham</option><option value="EUR">EUR — Euro</option></select></div><p class="security-note">Currency selection changes display preferences. Multi-currency transaction and exchange-rate accounting will be added in a later milestone.</p></div>
-          <div class="panel settings-panel data-tools-panel"><h2>Data & Backup</h2><p class="muted">Save a backup of this business, restore a previous WIZO POS backup, or permanently clear its records.</p>
-            <div class="settings-row"><div><b>Backup data</b><div class="muted">Download products, stock, sales, purchases and other business records.</div></div><button id="backupDataBtn" class="btn btn-primary" type="button">⬇ Download Backup</button></div>
-            <div class="settings-row"><div><b>Upload data</b><div class="muted">Restore a JSON backup previously downloaded from WIZO POS.</div></div><div><input id="restoreDataFile" type="file" accept=".json,application/json"><button id="restoreDataBtn" class="btn btn-light" type="button">Upload / Restore</button></div></div>
-            <div class="settings-row danger-setting"><div><b>Delete data</b><div class="muted">Permanently delete business records for Owner, Manager and Cashier activity. Login accounts and business access will remain. This cannot be undone. Download a backup first.</div></div><button id="deleteBusinessDataBtn" class="btn btn-danger" type="button">Delete All Data</button></div>
-            <p id="dataToolsStatus" class="security-note" role="status">Only the Owner can use backup, restore and delete. Delete All Data clears business records for all roles but keeps login accounts and business access.</p>
-          </div></section>
+        <section id="settingsPage" class="page hidden">
+          <div class="settings-intro">
+            <div><div class="eyebrow">WORKSPACE CONFIGURATION</div><h2>Settings</h2><p class="muted">Manage your business preferences, data protection and account access.</p></div>
+            <span class="settings-role-chip" id="settingsRoleLabel">OWNER SETTINGS</span>
+          </div>
+          <div class="settings-layout">
+            <div class="panel settings-panel settings-section">
+              <div class="settings-section-head"><span class="settings-icon">⚙</span><div><h3>Business & Regional Preferences</h3><p class="muted">Choose how WIZO POS is displayed in this workspace.</p></div></div>
+              <div class="settings-row"><label for="settingsLanguage">Application language</label><select id="settingsLanguage"><option value="en">English</option><option value="om">Afaan Oromoo</option><option value="ar">العربية</option></select></div>
+              <div class="settings-row"><label for="settingsCurrency">Main currency</label><select id="settingsCurrency"><option value="SAR">SAR — Saudi Riyal</option><option value="ETB">ETB — Ethiopian Birr</option><option value="USD">USD — US Dollar</option><option value="AED">AED — UAE Dirham</option><option value="EUR">EUR — Euro</option></select></div>
+              <p class="security-note">Language and currency controls currently update the display preference. Multi-currency transaction and exchange-rate accounting are not enabled.</p>
+            </div>
+            <div class="panel settings-panel settings-section">
+              <div class="settings-section-head"><span class="settings-icon">☁</span><div><h3>Data Protection & Backup</h3><p class="muted">Protect your business records with a downloadable backup.</p></div></div>
+              <div class="settings-row"><div><b>Download business backup</b><div class="muted">Export products, stock, sales, purchases and other supported records.</div></div><button id="backupDataBtn" class="btn btn-primary" type="button">⬇ Download Backup</button></div>
+              <div class="settings-row"><div><b>Restore a backup</b><div class="muted">Restore a WIZO POS JSON backup created for this same business.</div></div><div class="settings-file-actions"><input id="restoreDataFile" type="file" accept=".json,application/json"><button id="restoreDataBtn" class="btn btn-light" type="button">Upload / Restore</button></div></div>
+              <p id="dataToolsStatus" class="security-note" role="status">Backup and restore are available to the Owner only. Always keep a recent backup before restoring data.</p>
+            </div>
+            <div class="panel settings-panel settings-section">
+              <div class="settings-section-head"><span class="settings-icon">🛡</span><div><h3>Access & Security</h3><p class="muted">Settings access is separated by account role.</p></div></div>
+              <div class="settings-access-list">
+                <div><b>Super Admin</b><span>Platform settings, businesses and subscriptions are managed in the separate Super Admin page.</span></div>
+                <div><b>Owner</b><span>Controls this business's preferences, backup, restore and business data.</span></div>
+                <div><b>Manager</b><span>Does not have access to Settings or Super Admin controls.</span></div>
+                <div><b>Cashier</b><span>Cannot access business settings or administrative data tools.</span></div>
+              </div>
+            </div>
+            <div class="panel settings-panel settings-section settings-danger-section">
+              <div class="settings-section-head"><span class="settings-icon danger-icon">!</span><div><h3>Danger Zone</h3><p class="muted">This action permanently removes operational records from this business.</p></div></div>
+              <div class="settings-row danger-setting"><div><b>Delete all business data</b><div class="muted">Login accounts, business workspace and member access are kept. This action cannot be undone. Download a backup first.</div></div><button id="deleteBusinessDataBtn" class="btn btn-danger" type="button">Delete All Data</button></div>
+            </div>
+          </div>
+        </section>
       </div>
     </section>
   </main>
