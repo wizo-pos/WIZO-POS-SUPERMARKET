@@ -542,7 +542,27 @@ window.WIZO_CONFIG = {
     const login=r.auth_user_id?'Created':'Not linked';
     return `<tr><td>${esc(r.full_name)}</td><td>${esc(r.email||'—')}</td><td>${esc(r.phone||'—')}</td><td>${money(r.salary)}</td><td>${esc(r.status)}</td><td>${login}</td><td><button class="text-button" data-staff-view="${r.id}">View / Details</button> <button class="text-button" data-staff-print="${r.id}">Print</button> <button class="text-button" data-staff-edit="${r.id}">Edit</button> <button class="text-button" data-staff-status="${r.id}">${r.status==='active'?'Suspend':'Activate'}</button> <button class="text-button danger" disabled>Delete</button></td></tr>`;
   }
-  async function renderSalesHistory(){const {data,error}=await db.from('sales').select('id,invoice_number,total,currency,status,created_at').eq('business_id',businessId).order('created_at',{ascending:false}).limit(250);$('moduleMount').innerHTML=`<div class="section-toolbar"><div><h2>Sales History</h2><p class="muted">Completed and held invoices.</p></div></div><div class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Total</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody>${(data||[]).map((x,i)=>`<tr><td>${esc(x.invoice_number)}</td><td>${money(x.total)}</td><td>${esc(x.status)}</td><td>${new Date(x.created_at).toLocaleString()}</td><td>${actionButtons(i,{edit:false,delete:false,note:'Sales ledger requires a void / refund workflow'})}</td></tr>`).join('')||'<tr><td colspan="5" class="empty-state">No sales recorded yet.</td></tr>'}</tbody></table></div></div>`;$('moduleMount').querySelectorAll('[data-action-view]').forEach(b=>b.onclick=()=>showRecordDetails('Sale details',data[+b.dataset.actionView]));$('moduleMount').querySelectorAll('[data-action-print]').forEach(b=>b.onclick=()=>printRecord('Sales receipt',data[+b.dataset.actionPrint]));$('moduleMount').querySelectorAll('[data-action-edit],[data-action-delete]').forEach(b=>b.onclick=()=>showModal('Protected sales record','Sales cannot be edited or deleted directly. Use Returns & Refunds to record customer returns.'));if(error)showModal('Sales history error',error.message)}
+  async function renderSalesHistory(){
+    const {data,error}=await db.from('sales').select('id,invoice_number,total,currency,status,created_at').eq('business_id',businessId).order('created_at',{ascending:false}).limit(250);
+    const rows=data||[],canVoid=['owner','manager'].includes(memberRole);
+    $('moduleMount').innerHTML=`<div class="section-toolbar"><div><h2>Sales History</h2><p class="muted">Completed and held invoices. Owner and Manager can void a completed invoice; Cashier can view and print only.</p></div></div><div class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Total</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody>${rows.map((x,i)=>{const actions=actionButtons(i,{edit:false,delete:canVoid&&String(x.status||'').toLowerCase()==='completed',note:canVoid?(String(x.status||'').toLowerCase()==='completed'?'Void reverses the sale through the secure server operation.':'Only completed invoices can be voided.'):'Cashier permission: View and Print only.'});return `<tr><td>${esc(x.invoice_number||'—')}</td><td>${money(x.total)}</td><td>${esc(x.status)}</td><td>${new Date(x.created_at).toLocaleString()}</td><td>${actions}</td></tr>`}).join('')||'<tr><td colspan="5" class="empty-state">No sales recorded yet.</td></tr>'}</tbody></table></div></div>`;
+    $('moduleMount').querySelectorAll('[data-action-view]').forEach(b=>b.onclick=()=>showRecordDetails('Sale details',rows[+b.dataset.actionView]));
+    $('moduleMount').querySelectorAll('[data-action-print]').forEach(b=>b.onclick=()=>printRecord('Sales receipt',rows[+b.dataset.actionPrint]));
+    $('moduleMount').querySelectorAll('[data-action-delete]').forEach(b=>{b.textContent='Void invoice';});
+    $('moduleMount').querySelectorAll('[data-action-edit]').forEach(b=>b.onclick=()=>showModal('Protected sales record','Completed invoices cannot be edited. Use Returns & Refunds or the approved void process.'));
+    $('moduleMount').querySelectorAll('[data-action-delete]').forEach(b=>b.onclick=async()=>{
+      if(!['owner','manager'].includes(memberRole))return showModal('Access denied','Only Owner or Manager can void a sale.');
+      const sale=rows[Number(b.dataset.actionDelete)];if(!sale||String(sale.status||'').toLowerCase()!=='completed')return showModal('Cannot void invoice','Only completed invoices can be voided.');
+      const reason=prompt('Enter the reason for voiding invoice '+(sale.invoice_number||'')+':');if(reason===null)return;if(!reason.trim())return showModal('Reason required','Enter a reason before voiding this invoice.');
+      if(!confirm('Void invoice '+(sale.invoice_number||'')+'? The server must reverse stock and financial effects.'))return;
+      b.disabled=true;
+      const {error:rpcError}=await db.rpc('wizo_void_sale',{p_sale_id:sale.id,p_reason:reason.trim()});
+      b.disabled=false;
+      if(rpcError)return showModal('Void failed',rpcError.message+'\n\nCheck that the secure wizo_void_sale database function is installed and grants access only to Owner and Manager.');
+      $toast('Invoice voided successfully');await renderSalesHistory();await loadDashboard();
+    });
+    if(error)showModal('Sales history error',error.message);
+  }
   async function renderPurchase(){
     const products=await productOptions();
     const {data:purchaseUnits,error:unitLoadError}=await db.from('product_units').select('id,product_id,unit_name,conversion_factor,purchase_price').eq('business_id',businessId);
