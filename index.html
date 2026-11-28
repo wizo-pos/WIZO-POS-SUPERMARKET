@@ -988,10 +988,24 @@ window.WIZO_CONFIG = {
   async function init(){wire();if(!ready){$('connectionText').textContent='Configuration missing';return;}const {data:{session}}=await db.auth.getSession();if(session){user=session.user;await loadWorkspace()}else showAuth();db.auth.onAuthStateChange((event,session)=>{if(session?.user){user=session.user;loadWorkspace()}else if(event==='SIGNED_OUT')showAuth()});}
   document.addEventListener('DOMContentLoaded',()=>{
     const refreshButton=document.getElementById('appRefreshBtn');
-    if(refreshButton)refreshButton.addEventListener('click',()=>{
+    if(refreshButton)refreshButton.addEventListener('click',async()=>{
+      if(refreshButton.disabled)return;
       refreshButton.disabled=true;
+      const original=refreshButton.innerHTML;
       refreshButton.innerHTML='<span aria-hidden="true">⟳</span>';
-      window.location.reload();
+      try{
+        if(typeof navigate==='function' && typeof currentPage!=='undefined'){
+          await navigate(currentPage);
+        }else if(typeof loadWorkspace==='function'){
+          await loadWorkspace();
+        }
+      }catch(error){
+        console.error('Current page refresh failed:',error);
+        if(typeof showModal==='function')showModal('Refresh failed',error?.message||'Please try again.');
+      }finally{
+        refreshButton.disabled=false;
+        refreshButton.innerHTML=original;
+      }
     });
   });
   document.addEventListener('DOMContentLoaded',init);
