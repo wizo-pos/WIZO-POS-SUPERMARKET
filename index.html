@@ -70,6 +70,37 @@
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+
+  <style id="wizo-list-scrolling-fix">
+    /* Consistent vertical + horizontal scrolling for long management tables */
+    .table-wrap {
+      max-height: min(62vh, 620px);
+      overflow: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: #b7c9ce #f4f8f9;
+    }
+    .table-wrap::-webkit-scrollbar { width: 7px; height: 7px; }
+    .table-wrap::-webkit-scrollbar-thumb { background: #b7c9ce; border-radius: 10px; }
+    .table-wrap::-webkit-scrollbar-track { background: #f4f8f9; }
+    .table-wrap thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #f9fbfb;
+    }
+    /* Keep touch scrolling smooth and usable on phones */
+    @media (max-width: 760px) {
+      .table-wrap {
+        max-height: 56vh;
+        overscroll-behavior-y: contain;
+        touch-action: pan-x pan-y;
+      }
+      .table-wrap th, .table-wrap td { padding: 12px 13px; }
+    }
+  </style>
+
 </head>
 <body>
   <div id="toast" class="toast" role="status"></div>
